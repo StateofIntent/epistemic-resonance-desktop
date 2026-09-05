@@ -1,8 +1,16 @@
 import { defineConfig } from './src/main/defineConfig';
 
 export default defineConfig({
-  appId: 'org.holochain.kangaroo-electron',
-  productName: 'Holochain Kangaroo Electron',
+  // Reverse-DNS on the GitHub org that owns the app, not on holochain.org
+  // — this is a different app from the template it was made from, and the
+  // appId is what the conductor and the OS use to keep its data separate.
+  appId: 'org.stateofintent.epistemic-resonance',
+  productName: 'Epistemic Resonance',
+  // First packaged release. Kangaroo ties data compatibility to semver:
+  // 0.1.x releases share a conductor and its databases, and a bump to
+  // 0.2.0 starts fresh. That is the lever to pull for a Holochain
+  // version bump, which is never data-compatible — see Versioning in
+  // README.md. This app is on Holochain 0.7.
   version: '0.1.0',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
@@ -10,6 +18,13 @@ export default defineConfig({
   autoUpdates: true,
   systray: true,
   passwordMode: 'password-optional',
+  // INHERITED FROM THE TEMPLATE, AND WORTH A DECISION BEFORE A REAL
+  // RELEASE. These are Holochain's own dev/test services. They are what
+  // the template ships and they work, but they are not infrastructure
+  // this project controls or that anyone promises to keep running, and
+  // every installed copy of this app depends on them to find peers.
+  // Running our own is the alternative; `kitsune2-bootstrap-srv` is the
+  // same binary scripts/network.sh uses locally in the main repo.
   bootstrapUrl: 'https://dev-test-bootstrap2.holochain.org/',
   relayUrl: 'https://dev-test-bootstrap2.holochain.org/',
   bins: {

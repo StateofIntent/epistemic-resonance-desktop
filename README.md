@@ -1,200 +1,99 @@
-# Holochain-Kangaroo Electron
+# Epistemic Resonance — Desktop
 
-Put your Holochain App in this Kangaroo's electron pouch and let it run.
+Packages the [Epistemic Resonance Protocol](https://github.com/StateofIntent/epistemic-happ)
+as a standalone desktop application with a Holochain conductor built in, so
+that running it does not require Rust, Node, or a terminal.
 
-This repository lets you easily convert your Holochain app into a standalone, electron-based cross-platform Desktop app.
+Built from [holochain/kangaroo-electron](https://github.com/holochain/kangaroo-electron).
+Its own documentation is kept verbatim as [KANGAROO-TEMPLATE.md](KANGAROO-TEMPLATE.md);
+read that for the template's mechanics. This file covers only what is
+specific to this app.
 
-> [!WARNING]
-> Support for non-breaking updates to happ coordinator zomes is currently not built into the kangaroo. It is expected that there is only ever one single version of a happ for any semver compatible range of versions of a kangaroo packaged app (see also [Versioning](#versioning))
+## Why this repo exists
 
-# Holochain Versions
+The Holochain Launcher used to be the answer: one desktop app that installed
+many hApps from a `.webhapp` file. It has had no release since v0.400.0 in
+March 2025, and that release bundles **Holochain 0.4.1**. This app is on
+**0.7**, and the app manifest format changed at 0.6, so a 0.7 `.webhapp`
+cannot be installed into any released Launcher — it fails with a manifest
+parse error rather than a version mismatch.
 
-Depending on which Holochain minor version you want to use you should use the corresponding branch of this repository.
+Kangaroo is what replaced that model: one packaged app per hApp, each
+carrying its own conductor.
 
-- Holochain 0.7.x (unstable): [current]
-- Holochain 0.6.x (stable): [main-0.6](https://github.com/holochain/kangaroo-electron/tree/main-0.6)
-- Holochain 0.5.x: [main-0.5](https://github.com/holochain/kangaroo-electron/tree/main-0.5)
-- Holochain 0.4.x: [main-0.4](https://github.com/holochain/kangaroo-electron/tree/main-0.4)
-- Holochain 0.3.x: [main-0.3](https://github.com/holochain/kangaroo-electron/tree/main-0.3)
+## Versions, and which move together
 
-If you change the `holochainVersion` field in `kangaroo.config.ts`, the npm dependencies that talk to the conductor (`@holochain/client` and `@holochain/hc-spin-rust-utils`) need to move to a matching version series as well. The `bins.compatibleDeps` field in `kangaroo.config.ts` records which npm dependency series goes with which Holochain series, and `yarn check:config` verifies that `package.json` agrees with it:
+| | |
+|---|---|
+| Holochain | 0.7.0 |
+| `@holochain/client` | 0.21 |
+| `@holochain/hc-spin-rust-utils` | 0.700 |
+| app version | 0.1.0 |
 
-```ts
-compatibleDeps: {
-  '0.7': {
-    '@holochain/client': '0.21',
-    '@holochain/hc-spin-rust-utils': '0.700',
-  },
-},
+`yarn check:config` verifies the first three agree with each other and with
+the real Holochain release. Run it after changing any of them.
+
+**App version is not cosmetic.** Kangaroo ties data compatibility to semver:
+0.1.x releases share a conductor and its databases, and 0.2.0 starts fresh.
+A Holochain version bump is never data-compatible, so it needs a minor bump.
+See Versioning in the template docs.
+
+## Updating the packaged hApp
+
+```bash
+# in the epistemic-happ checkout
+scripts/pack-webhapp.sh
+cp epistemic-resonance-happ.webhapp ../epistemic-resonance-desktop/pouch/
 ```
 
-> [!NOTE]
-> Add an entry whenever you move to a new Holochain series. If there is no entry for the series you configured, `yarn check:config` prints a warning and skips the dependency verification instead of failing.
+The `.webhapp` is **committed to this repo** rather than gitignored, which is
+a departure from the template. CI needs it to build, and Kangaroo accepts it
+either as a committed file or as a URL plus sha256 in `kangaroo.config.ts`.
+The URL form needs somewhere to host it and the app repo publishes no
+releases, so there is nothing to point at yet. It costs ~1.7MB per version;
+switching to the URL form later is a config change, not a rework.
 
-# Instructions
+The template requires an `icon.png` of at least 256×256 at the root of the
+webhapp's UI assets. `epistemic-happ` ships one at `mobile-ui/public/`, and
+`yarn create:icons` derives the `.ico`, `.icns`, systray and notification
+icons from it.
 
-## Setup and Testing Locally
+## Releasing
 
-1. Either use this repository as a template (by clicking on the green "Use this template" button) or fork it.
-   Using it as a template allows you to start with a clean git history and the contributors of this repository won't show up as contributors to your new repository. **Forking has the advantage of being able to relatively easily pull in updates from this parent repository at a later point in time.** If you fork it, it may be smart to work off a different branch than the main branch in your forked repository in order to be able to keep the main branch in sync with this parent repository and selectively merge into your working branch as needed.
+Push to the `release` branch. CI builds for Windows, macOS (Intel and Apple
+Silicon) and Ubuntu, and attaches the artifacts to a GitHub release.
 
-2. In the `kangaroo.config.ts` file, replace the `appId` and `productName` fields with names appropriate for your own app.
+Auto-updates read `repository` in `package.json` to find those artifacts, so
+that field must name **this** repo. Pointing it at the app repo instead was
+tried and does not work: installed copies look for `latest-linux.yml` under
+the wrong tags and get a 404.
 
-3. In your local copy of the repository, run
+## Three decisions worth revisiting
 
-```
-yarn setup
-```
+**Peer discovery runs on Holochain's dev/test servers.** `bootstrapUrl` and
+`relayUrl` are the template's defaults, `dev-test-bootstrap2.holochain.org`.
+They work, and they are not infrastructure this project controls or that
+anyone promises to keep running — every installed copy depends on them to
+find peers. Running our own is the alternative; `kitsune2-bootstrap-srv` is
+the same binary `scripts/network.sh` uses locally in the app repo.
 
-4. Choose a version number in the `version` field of `kangaroo.config.ts`. And **Read** the section [Versioning](#Versioning) below to understand the implications.
+**Nothing is code signed.** `macOSCodeSigning` and `windowsEVCodeSigning` are
+both false, so releases are unsigned. On macOS 15 that means the app is
+quarantined with no UI to allow it — users need `xattr -r -d
+com.apple.quarantine` from a terminal, which most will not do. Certificates
+are the fix; the template documents the secrets each platform needs.
 
-5. Paste the `.webhapp` file of your holochain app into the `pouch` folder.
-   **Note**: The kangaroo expects an `icon.png` of at least 256x256 pixel at the root level of your webhapp's UI assets.
+**The licence is the template's, not the app's.** `package.json` still says
+`CAL-1.0`, which is what Kangaroo's own code is licensed under and what this
+repo inherits by deriving from it. The hApp inside is MIT OR Apache-2.0. That
+combination has not been reviewed by anyone qualified to say what the
+packaged whole may be distributed under, and it was deliberately left alone
+rather than quietly changed to match the app.
 
-6. To test it, run
+## Verified locally
 
-```
-yarn dev
-```
-
-## Build the Distributable
-
-> [!WARNING]
-> The default bootstrap and relay server (used for connection establishment among peers)
-> in `kangaroo.config.ts` have no availability guarantees whatsoever and are meant for testing
-> purposes only.
->
-> If you want to deploy your app to end-users, make sure to run your own
-> instances of these servers or use servers that have guaranteed availability for the lifetime
-> of your app's network(s).
->
-> **Changing these URLs *after* deployment of your app can result in a network partition**.
-
-
-### Build locally
-
-To build the app locally for your platform, run the build command for your respecive platform:
-
-```
-yarn build:linux
-
-# or
-yarn build:mac-arm64 # for Apple Silicon Macs
-yarn build:mac-x64   # for Intel Macs
-
-# or
-yarn build:windows
-```
-
-### Build on CI for all platforms
-
-The general workflow goes as follows:
-
-1. Make sure that CI has access to your app's .webhapp file by either
-   - specifying the `webhapp` field in `kangaroo.config.ts` pointing to a URL where CI can fetch it and a sha256 to verify its integrity
-   - remove `pouch/*.webhapp` from the `.gitignore` file and commit your .webhapp to git.
-
-2. Create a draft release on github and set its "Tag verion" to the value of the `version` field that you chose in `kangaroo.config.ts` and prefix it with `v`, for example `v0.1.0`.
-
-3. Merge the main branch into the release branch and push it to github to trigger the release workflow.
-
-If you do this for the first time you will need to create the `release` branch first:
-
-```
-git checkout -b release
-git merge main
-git push --set-upstream origin release
-```
-
-For subsequent releases after that you can run
-
-```
-git checkout release
-git merge main
-git push
-```
-
-## Automatic Updates
-
-By default, the kangaroo is set up to check github releases for semver compatible releases by their tag name whenever the app starts up and will prompt to install and restart if one is available. This can be disabled by setting `autoUpdates` to `false` in `kangaroo.config.ts`.
-
-> [!NOTE]
-> Note that once your app is deployed, this setting can only be turned on again for newer releases and users will have to manually install new versions.
-
-## Versioning
-
-To allow for subsequent incompatible releases of your app (for example due to switching to a new Holochain version) without having to change the app's name or identifier, the kangaroo is set up to use semver to support incompatible versions of your app running fully independently from each other and store their data in dedicated locations on disk.
-
-Examples:
-
-- version 0.0.2 and 0.0.3 of your app will store their data in independent locations on disk and version 0.0.3 will not have access to any data created/obtained in version 0.0.2
-- version 0.3.4 will reuse the same Holochain conductor and data as version 0.3.2
-- versions 0.3.0-alpha and 0.3.0-beta will _not_ share data
-- versions 0.3.0-alpha.0 and 0.3.0-alpha.1 _will_ share data
-
-> [!NOTE]
-> It is your responsibility to make sure that if you mark two versions of your app as semver compatible they actually are compatible (e.g. that you don't try to run a new incompatible version of Holochain on existing databases).
-
-## Code Signing
-
-### macOS
-
-To use code signing on macOS for your release in CI you will have to
-
-1. Set the `macOSCodeSigning` field to `true` in `kangaroo.config.ts`
-2. Add the following secrets to your github repository with the appropriate values:
-
-- `APPLE_DEV_IDENTITY`
-- `APPLE_ID_EMAIL`
-- `APPLE_ID_PASSWORD`
-- `APPLE_TEAM_ID`
-- `APPLE_CERTIFICATE`
-- `APPLE_CERTIFICATE_PASSWORD`
-
-3. Uncomment the line `afterSign: scripts/notarize.js` in `./templates/electron-builder-template.yml`.
-
-> [!WARNING]
-> **Unsigned applications are put under quarantine on macOS 15 (Sequoia).** The option in the Privacy & Security panel of the System Settings to allow them has been removed. To unset the quarantine attribute of an unsigned app,
-the command `xattr -r -d com.apple.quarantine /path/to/app` can be executed from a Terminal. The app can then be run.
-
-### Windows
-
-If you want to code sign your app with an EV certificate, you can follow [this guide](https://melatonin.dev/blog/how-to-code-sign-windows-installers-with-an-ev-cert-on-github-actions/) to get your EV certificate hosted on Azure Key Vault and then
-
-1. Set the `windowsEVCodeSigning` field to `true` in `kangaroo.config.ts`
-2. Add all the necessary secrets to the repository:
-
-- `AZURE_KEY_VAULT_URI`
-- `AZURE_CERT_NAME`
-- `AZURE_TENANT_ID`
-- `AZURE_CLIENT_ID`
-- `AZURE_CLIENT_SECRET`
-
-## Permissions on macOS
-
-Access to things like camera and microphone on macOS require special permissions to be set in the .plist file. For this, uncomment the corresponding permissions in `./templates/electron-builder-template.yml` as needed.
-
-## Run your App from the command line
-
-If you want to customize some runtime parameters you can run your app via the terminal and pass additional options:
-
-```
-Options:
-  -V, --version                  output the version number
-  -p, --profile <string>         Runs Holochain Kangaroo Electron (Test) with a custom profile with its own dedicated data store.
-  -n, --network-seed <string>    If this is the first time running kangaroo with the given profile, this installs the happ with the
-                                 provided network seed.
-  --holochain-path <path>        Runs Holochain Kangaroo Electron (Test) with the holochain binary at the provided path. Use with caution
-                                 since this may potentially corrupt your databases if the binary you use is not compatible with existing
-                                 databases.
-  --lair-path <path>             Runs the Holochain Kangaroo Electron (Test) with the lair binary at the provided path. Use with caution
-                                 since this may potentially corrupt your databases if the binary you use is not compatible with existing
-                                 databases.
-  --holochain-rust-log <string>  RUST_LOG value to pass to the holochain binary
-  --holochain-wasm-log <string>  WASM_LOG value to pass to the holochain binary
-  --lair-rust-log <string>       RUST_LOG value to pass to the lair keystore binary
-  -b, --bootstrap-url <url>      URL of the bootstrap server to use (not persisted across restarts).
-  --relay-url <url>              URL of the relay server to use (not persisted across restarts).
-  --print-holochain-logs         Print holochain logs directly to the terminal (they will be still written to the logfile as well)
-  -h, --help                     display help for command
-```
+On Holochain 0.7.0, an AppImage built from this configuration starts
+lair-keystore, brings up a conductor (`Conductor ready.`), compiles the
+zomes into its WASM cache and creates the DHT database for the installed
+DNA. The `.deb` target additionally needs `libcrypt.so.1`, which Arch
+replaced with libxcrypt — it builds on the Ubuntu runner CI uses.

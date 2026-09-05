@@ -13,7 +13,12 @@ build/*
 !build/entitlements.mac.plist
 
 # pouch
-pouch/*.webhapp
+# The .webhapp is COMMITTED, deliberately, rather than ignored. CI needs
+# it to build, and Kangaroo offers exactly two ways to give it one: a
+# `webhapp` URL plus sha256 in kangaroo.config.ts, or the file in git.
+# The URL option needs somewhere to host it, and the app repo publishes no
+# releases yet, so there is nothing to point at. ~1.7MB per version.
+# pouch/*.webhapp
 
 # electron-builder
 out/

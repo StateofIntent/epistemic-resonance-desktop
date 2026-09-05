@@ -1,5 +1,5 @@
 {
-  "name": "org.holochain.kangaroo-electron",
+  "name": "org.stateofintent.epistemic-resonance",
   "version": "0.1.0",
   "license": "CAL-1.0",
   "main": "./out/main/index.js",
@@ -65,5 +65,13 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.0",
     "vite": "^7.3.6"
-  }
+  },
+  "description": "Epistemic Resonance Protocol \u2014 a distributed knowledge system, packaged as a standalone desktop app with a built-in Holochain conductor.",
+  "author": "StateofIntent",
+  "homepage": "https://github.com/StateofIntent/epistemic-resonance-desktop",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StateofIntent/epistemic-resonance-desktop.git"
+  },
+  "desktopName": "org.stateofintent.epistemic-resonance.desktop"
 }

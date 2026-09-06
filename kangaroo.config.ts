@@ -6,12 +6,19 @@ export default defineConfig({
   // appId is what the conductor and the OS use to keep its data separate.
   appId: 'org.stateofintent.epistemic-resonance',
   productName: 'Epistemic Resonance',
-  // First packaged release. Kangaroo ties data compatibility to semver:
-  // 0.1.x releases share a conductor and its databases, and a bump to
-  // 0.2.0 starts fresh. That is the lever to pull for a Holochain
-  // version bump, which is never data-compatible — see Versioning in
-  // README.md. This app is on Holochain 0.7.
-  version: '0.1.0',
+  // Kangaroo ties data compatibility to semver: 0.1.x releases share a
+  // conductor and its databases, and a bump to 0.2.0 starts fresh. That
+  // is the lever to pull for a Holochain version bump, which is never
+  // data-compatible — see Versioning in README.md. This app is on
+  // Holochain 0.7.
+  //
+  // It is also the lever for a DNA change, for a less obvious reason:
+  // holochainManager.ts installs the hApp only if HAPP_APP_ID is absent
+  // from the conductor, so a patch release onto a shared 0.1.x data
+  // directory ships the new UI against the ALREADY-INSTALLED cell. A
+  // patch bump is therefore only correct when the change is UI-only.
+  // 0.1.1 is: a theme toggle, no zome or DNA change.
+  version: '0.1.1',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
   fallbackToIndexHtml: true,

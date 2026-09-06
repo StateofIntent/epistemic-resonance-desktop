@@ -53,6 +53,17 @@ The URL form needs somewhere to host it and the app repo publishes no
 releases, so there is nothing to point at yet. It costs ~1.7MB per version;
 switching to the URL form later is a config change, not a rework.
 
+**Which version bump the change needs.** A UI-only change is a patch bump
+(`0.1.0` → `0.1.1`) and reaches installed copies through auto-update, because
+the UI ships extracted at `resources/ui` and every installer carries its own.
+A DNA or zome change needs a **minor** bump. `installHappIfNecessary` in
+`src/main/holochainManager.ts` returns early when `HAPP_APP_ID` is already
+present in the conductor, and all of `0.1.x` shares one data directory — so a
+patch release onto an existing install would put the new UI in front of the
+old cell, silently. The minor bump gives it a fresh conductor. Note that
+auto-update only offers semver-compatible releases, so a minor bump is a
+manual download for everyone already running the app.
+
 The template requires an `icon.png` of at least 256×256 at the root of the
 webhapp's UI assets. `epistemic-happ` ships one at `mobile-ui/public/`, and
 `yarn create:icons` derives the `.ico`, `.icns`, systray and notification

@@ -118,12 +118,37 @@ Ubuntu runner.
 
 ## Three decisions worth revisiting
 
-**Peer discovery runs on Holochain's dev/test servers.** `bootstrapUrl` and
-`relayUrl` are the template's defaults, `dev-test-bootstrap2.holochain.org`.
-They work, and they are not infrastructure this project controls or that
-anyone promises to keep running — every installed copy depends on them to
-find peers. Running our own is the alternative; `kitsune2-bootstrap-srv` is
-the same binary `scripts/network.sh` uses locally in the app repo.
+**Peer discovery runs on Holochain's dev/test servers.** `bootstrapUrl` is
+the template's default, `dev-test-bootstrap2.holochain.org`. It works, and it
+is not infrastructure this project controls or that anyone promises to keep
+running — every installed copy depends on it to find peers. Running our own is
+the alternative; `kitsune2-bootstrap-srv` is the same binary
+`scripts/network.sh` uses locally in the app repo.
+
+**And `relayUrl` was pointed at that same bootstrap server, which is a
+different kind of problem.** This paragraph used to say both fields were "the
+template's defaults" — they are the template's, and the relay one is not
+Holochain 0.7's. The version this app pins defaults it to an **iroh relay**
+(`holochain_conductor_api-0.7.0/src/config/conductor.rs:394`:
+`relay_url: "https://use1-1.relay.n0.iroh-canary.iroh.link./"`), and
+`holochainManager.ts` writes the configured value straight to
+`network.relay_url`. So every installed copy was telling iroh its relay is a
+bootstrap server.
+
+A relay is what carries traffic between two peers that cannot reach each other
+directly — the ordinary case for two home connections behind consumer NAT, and
+exactly the case the app repo's §9 records as never measured. **Peers on one
+LAN connect directly and never touch the relay, so this looks fine in every
+easy test and fails only in the case mass adoption consists of.** Worse, the
+app repo's own `scripts/cross-internet-node.sh` passes 0.7's correct iroh
+relay, so a successful cross-internet run there would never have validated the
+shipped configuration: the one test and the shipped app pointed at different
+relays.
+
+Corrected in `kangaroo.config.ts`. **Not proven at runtime** — nobody has
+watched iroh reject the old value — so the two-consumer-network measurement
+should be run against a build carrying the fix, since a run against the old
+value measures the bug rather than the protocol.
 
 **Nothing is code signed.** `macOSCodeSigning` and `windowsEVCodeSigning` are
 both false, so releases are unsigned. On macOS 15 that means the app is

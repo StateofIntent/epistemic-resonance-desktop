@@ -49,8 +49,10 @@ cp epistemic-resonance-happ.webhapp ../epistemic-resonance-desktop/pouch/
 The `.webhapp` is **committed to this repo** rather than gitignored, which is
 a departure from the template. CI needs it to build, and Kangaroo accepts it
 either as a committed file or as a URL plus sha256 in `kangaroo.config.ts`.
-The URL form needs somewhere to host it and the app repo publishes no
-releases, so there is nothing to point at yet. It costs ~1.7MB per version;
+The URL form needs somewhere to host it. The app repo **does** publish
+releases — `v0.1.0` and `v0.1.1` both carry the `.happ` and `.webhapp` — so
+there is something to point at; this said otherwise and was simply out of
+date. Switching would mean the URL has to outlive the release it names. It costs ~1.7MB per version;
 switching to the URL form later is a config change, not a rework.
 
 **Which version bump the change needs.** A UI-only change is a patch bump

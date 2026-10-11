@@ -33,7 +33,40 @@ export default defineConfig({
   // Running our own is the alternative; `kitsune2-bootstrap-srv` is the
   // same binary scripts/network.sh uses locally in the main repo.
   bootstrapUrl: 'https://dev-test-bootstrap2.holochain.org/',
-  relayUrl: 'https://dev-test-bootstrap2.holochain.org/',
+  // RELAY URL CORRECTED: IT WAS POINTED AT THE BOOTSTRAP SERVER.
+  //
+  // Both fields read `dev-test-bootstrap2.holochain.org` until now, and the
+  // README described them together as "the template's defaults". They are
+  // the template's, and the relay one is NOT Holochain 0.7's. Read out of
+  // the dependency this app pins:
+  //
+  //   holochain_conductor_api-0.7.0/src/config/conductor.rs:394
+  //     relay_url: Url2::parse("https://use1-1.relay.n0.iroh-canary.iroh.link./")
+  //
+  // `holochainManager.ts` writes this value to `network.relay_url`, so every
+  // installed copy was telling iroh that its relay is a bootstrap server.
+  //
+  // WHY THIS IS THE WORST PLACE FOR SUCH A MISTAKE. A relay is what carries
+  // traffic between two peers that cannot reach each other directly — which
+  // is the ordinary case for two home connections behind consumer NAT, and
+  // the exact case the app repo's §9 records as never having been measured.
+  // Peers on one LAN, or with a cooperative NAT, connect directly and never
+  // need the relay, so this would look fine in every easy test and fail only
+  // in the case mass adoption consists of.
+  //
+  // AND THE PROJECT'S OWN CROSS-INTERNET TEST USES THE CORRECT RELAY.
+  // `scripts/cross-internet-node.sh` in the app repo passes 0.7's iroh
+  // default, so a successful run there would NOT have validated this
+  // configuration. The one test of cross-internet connectivity and the
+  // shipped app were pointed at different relays.
+  //
+  // NOT PROVEN AT RUNTIME. Nobody has watched iroh reject this value or seen
+  // a connection fail because of it; the evidence is the pinned dependency's
+  // own default and what the field is for. The two-consumer-network
+  // measurement the app repo calls the highest-value outstanding item should
+  // be run against a build carrying this fix, since a run against the old
+  // value would be measuring the bug rather than the protocol.
+  relayUrl: 'https://use1-1.relay.n0.iroh-canary.iroh.link./',
   bins: {
     holochainVersion: '0.7.0',
     compatibleDeps: {

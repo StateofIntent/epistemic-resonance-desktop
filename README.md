@@ -66,6 +66,35 @@ old cell, silently. The minor bump gives it a fresh conductor. Note that
 auto-update only offers semver-compatible releases, so a minor bump is a
 manual download for everyone already running the app.
 
+**The cell's DNA hash is not the bundle's, and neither is wrong.** The packed
+DNA declares `network_seed: null`, but `installHappIfNecessary` installs it
+with one — `holochainManager.ts:184` passes `network_seed`, and
+`defaultAppNetworkSeed()` in `src/main/cli.ts:85` sets it to
+`${productName}-${breakingAppVersion()}`, so `Epistemic Resonance-0.2.x`. The
+DNA hash is computed over the integrity zome **and** the modifiers, so the
+installed cell's hash can never equal the hash of the bundle it came from:
+
+| | |
+|---|---|
+| `epistemic-resonance-happ.webhapp` as packed, `protocol_version: 9` | `uhC0kUHSiD5aAt7BH6XJ3j7XGfdaxLL3oFUj6f-2OPU29caU0ZkxF` |
+| the cell a `0.2.x` install actually runs | `uhC0kozkSiLXO9mxkIAVWCRm6Qos6FYnyH65_gMkkP10hXUwtxVX0` |
+| the cell a `0.1.x` install runs | `uhC0kTVLiT866Dy2keUQFN5bYLSDUOhBp6IGhnCcyp9Fifx0_ufJJ` |
+
+Read from the conductor's own database filenames under
+`~/.config/org.stateofintent.epistemic-resonance/<breaking version>/default/data/conductor/`,
+which are named `dht-<dna hash>.db`. The app repo's `READINESS.md` quotes the
+first of these as the release's DNA hash, which is true of the artifact; it is
+not the hash anybody running this desktop app is on. **The release notes for
+`v0.2.0` quote it too, and have the same gap.**
+
+Two consequences. Every `0.2.x` install derives the same seed and therefore
+the same hash, so desktop users are all on one network — that part is
+intended. But **a desktop install and a dev conductor are on different
+networks at identical code**, because anything run from the app repo's own
+tooling uses the null seed. A desktop install will never see a peer running
+`hc spin`, and that looks exactly like broken propagation if you are testing
+one against the other.
+
 The template requires an `icon.png` of at least 256×256 at the root of the
 webhapp's UI assets. `epistemic-happ` ships one at `mobile-ui/public/`, and
 `yarn create:icons` derives the `.ico`, `.icns`, systray and notification
@@ -118,6 +147,36 @@ what make those updates differential rather than full re-downloads.
 This also settles the `.deb` question noted below: it builds fine on the
 Ubuntu runner.
 
+#### The `v0.2.0` run, and what was checked on it
+
+Run [`38240998611`](../../actions/runs/38240998611), 2026-10-12 — all four
+platform jobs succeeded and the asset set is complete, 15 files:
+
+| platform | artifacts |
+|---|---|
+| Linux | `.AppImage` (150MB), `.deb` (113MB), `latest-linux.yml` |
+| Windows | `-setup.exe` (115MB), `latest.yml` |
+| macOS Intel | `-x64.dmg` (143MB), `-mac.zip` (143MB) |
+| macOS Apple Silicon | `-arm64.dmg` (141MB), `-arm64-mac.zip` (141MB) |
+| both macOS | `latest-mac.yml` |
+
+**Green jobs are not the check that matters** — the section below is about a
+run that was green on all four and still shipped a broken manifest. So three
+things were verified on the published release rather than inferred from it:
+
+- **`latest-linux.yml` against the published AppImage.** Manifest size
+  157631629 and sha512 `yWK1wAPy…01tMBQ==`; the asset downloaded from the
+  release hashes to the same value. This is the comparison `v0.1.1` fails.
+- **The app starts and installs its cell.** The AppImage reached `Conductor
+  ready.` and `Happ installed.` on a fresh `0.2.x` profile, beside the
+  existing `0.1.x` one, with the window loading.
+- **Auto-update round-trips against the real release.** The running app found
+  `compatible tags: [ 'v0.2.0' ]`, matched the sha512 above, and declined the
+  downgrade.
+
+What that leaves unverified: the Windows and both macOS artifacts were built
+and uploaded but **never launched**, on this release or any other.
+
 ### Re-releasing an existing tag leaves most assets stale
 
 **A push to `release` that does not change `version` does not re-release the
@@ -158,6 +217,13 @@ release. Bump `version` so the tag is new and every asset is uploaded for the
 first time — which is how `v0.1.0` and `v0.1.1` got complete asset sets, and
 why the `0.2.0` run is not affected by any of this. Re-running an existing tag
 needs the stale assets deleted from the release first, by hand.
+
+**`v0.2.0` confirms it rather than assuming it.** New tag, all 15 assets
+uploaded for the first time, and the manifest verified against the published
+AppImage by sha512 — recorded above. `v0.1.1` is left as it stands: its
+Linux auto-update is broken and nobody but the author ever installed it, so
+there is no one to strand and nothing to repair. Fixing it would mean deleting
+the stale assets from that release by hand, and `v0.2.0` supersedes it.
 
 ## Three decisions worth revisiting
 

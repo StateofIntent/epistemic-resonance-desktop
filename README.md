@@ -28,7 +28,7 @@ carrying its own conductor.
 | Holochain | 0.7.0 |
 | `@holochain/client` | 0.21 |
 | `@holochain/hc-spin-rust-utils` | 0.700 |
-| app version | 0.1.0 |
+| app version | 0.2.0 |
 
 `yarn check:config` verifies the first three agree with each other and with
 the real Holochain release. Run it after changing any of them.
@@ -117,6 +117,47 @@ what make those updates differential rather than full re-downloads.
 
 This also settles the `.deb` question noted below: it builds fine on the
 Ubuntu runner.
+
+### Re-releasing an existing tag leaves most assets stale
+
+**A push to `release` that does not change `version` does not re-release the
+app.** It rebuilds everything and then replaces almost none of it, because the
+four jobs upload by two different mechanisms:
+
+- **Linux** uploads explicitly, with `gh release upload --clobber` — and only
+  for `latest-linux.yml` and the `.deb`. **The AppImage is never in that
+  list.** It reaches the release only via electron-builder's own publisher.
+- **macOS and Windows** (unsigned, which is this app's configuration) upload
+  only through electron-builder's publisher. The Windows `gh release upload`
+  block is inside `if WINDOWS_CODE_SIGNING == true`, so it never runs here.
+
+electron-builder's publisher does not replace an asset that is already on the
+release, so on a re-run of an existing tag the mac and Windows artifacts and
+the AppImage all stay as they were, while `latest-linux.yml` and the `.deb` are
+overwritten with the new build.
+
+**Observed, on this repo's published `v0.1.1`.** Run `38130535367` (the merge
+of PR #3, the relay fix, into `release` on 2026-10-11) succeeded on all four
+platforms against the already-released `v0.1.1`. The result:
+
+| asset | state after the run |
+|---|---|
+| `latest-linux.yml` | **replaced** — regenerated 2026-10-11, describes the new AppImage |
+| `..._0.1.1_amd64.deb` | **replaced** — new build, carries the relay fix |
+| `...-0.1.1.AppImage` | **stale** — still the 2026-09-06 build |
+| all macOS, all Windows | **stale** — still 2026-09-06 |
+
+So `latest-linux.yml` now names an AppImage of 157541505 bytes while the
+AppImage actually published is 157541572. **Linux AppImage auto-update is
+broken on `v0.1.1` as a result** — electron-updater fetches the AppImage,
+checks it against the sha512 in that manifest, and cannot match it. The run
+reported success throughout; nothing anywhere failed.
+
+**The rule this implies.** A release is a *new version*, or it is not a
+release. Bump `version` so the tag is new and every asset is uploaded for the
+first time — which is how `v0.1.0` and `v0.1.1` got complete asset sets, and
+why the `0.2.0` run is not affected by any of this. Re-running an existing tag
+needs the stale assets deleted from the release first, by hand.
 
 ## Three decisions worth revisiting
 

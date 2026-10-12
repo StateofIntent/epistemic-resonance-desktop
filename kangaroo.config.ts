@@ -17,8 +17,19 @@ export default defineConfig({
   // from the conductor, so a patch release onto a shared 0.1.x data
   // directory ships the new UI against the ALREADY-INSTALLED cell. A
   // patch bump is therefore only correct when the change is UI-only.
-  // 0.1.1 is: a theme toggle, no zome or DNA change.
-  version: '0.1.1',
+  // 0.2.0 is a DNA change, so it is a minor bump for exactly that reason:
+  // the packaged webhapp moves from the 0.1.1 bundle packed 2026-09-04 to
+  // one packed from the app repo's `protocol_version: 9` (DNA hash
+  // uhC0kUHSiD5aAt7BH6XJ3j7XGfdaxLL3oFUj6f-2OPU29caU0ZkxF). The integrity
+  // zome forked six times between those two packings and the DNA hash is
+  // computed over it, so each fork is a separate network: a patch release
+  // here would have put the new UI in front of the old cell and joined
+  // none of the network this app now describes.
+  //
+  // Auto-update will not offer this to anyone running 0.1.x, because
+  // electron-updater only offers semver-compatible releases. That is the
+  // intended cost — everyone already installed downloads it by hand.
+  version: '0.2.0',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
   fallbackToIndexHtml: true,

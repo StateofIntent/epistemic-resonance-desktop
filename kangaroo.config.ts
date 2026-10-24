@@ -29,7 +29,23 @@ export default defineConfig({
   // Auto-update will not offer this to anyone running 0.1.x, because
   // electron-updater only offers semver-compatible releases. That is the
   // intended cost — everyone already installed downloads it by hand.
-  version: '0.2.0',
+  //
+  // 0.3.0 IS THE SAME DECISION AGAIN, for `protocol_version: 11`. The
+  // packaged webhapp moves from the protocol 9 bundle above to one packed
+  // 2026-10-25 (DNA hash
+  // uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh). Between those
+  // two packings the integrity zome took protocol_version 10 and 11 plus
+  // all five autopoiesis stages, so 0.2.x and 0.3.x are separate networks
+  // and a patch bump would again have shipped the new UI in front of the
+  // old cell. Same cost accepted again: auto-update will not offer this to
+  // anyone on 0.2.x.
+  //
+  // Verified as the artifact rather than as the tree it came from: the
+  // bundle was unpacked, its own dna.yaml declares protocol_version 11,
+  // its .happ is byte-identical to the one the app repo built
+  // (sha256 7ef913d7...), and all 101 checks of attachment-links.mjs pass
+  // against a conductor running it.
+  version: '0.3.0',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
   fallbackToIndexHtml: true,

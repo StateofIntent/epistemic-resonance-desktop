@@ -28,7 +28,7 @@ carrying its own conductor.
 | Holochain | 0.7.0 |
 | `@holochain/client` | 0.21 |
 | `@holochain/hc-spin-rust-utils` | 0.700 |
-| app version | 0.2.0 |
+| app version | 0.3.1 |
 
 `yarn check:config` verifies the first three agree with each other and with
 the real Holochain release. Run it after changing any of them.
@@ -58,13 +58,30 @@ switching to the URL form later is a config change, not a rework.
 **Which version bump the change needs.** A UI-only change is a patch bump
 (`0.1.0` → `0.1.1`) and reaches installed copies through auto-update, because
 the UI ships extracted at `resources/ui` and every installer carries its own.
-A DNA or zome change needs a **minor** bump. `installHappIfNecessary` in
-`src/main/holochainManager.ts` returns early when `HAPP_APP_ID` is already
-present in the conductor, and all of `0.1.x` shares one data directory — so a
-patch release onto an existing install would put the new UI in front of the
-old cell, silently. The minor bump gives it a fresh conductor. Note that
-auto-update only offers semver-compatible releases, so a minor bump is a
-manual download for everyone already running the app.
+
+**A change to the INTEGRITY zome needs a minor bump; a change to the
+COORDINATOR zome does not.** This sentence read "a DNA or zome change" until
+`0.3.1`, which is a counterexample to it: that release repacks the bundle with
+a coordinator fix (item 1.18) and is correctly a PATCH, because the DNA hash is
+computed over the integrity zome alone and did not move. The test is not
+"did any Rust change" but **did the DNA hash change** — unpack both bundles and
+run `hc dna hash` on the `.dna`, as `kangaroo.config.ts` records for `0.3.1`.
+Guessing from the diff is what this sentence used to encourage.
+
+`installHappIfNecessary` in `src/main/holochainManager.ts` returns early when
+`HAPP_APP_ID` is already present in the conductor, and all of `0.3.x` shares
+one data directory — so when the DNA hash *has* moved, a patch release onto an
+existing install would put the new UI in front of the old cell, silently, and
+the minor bump is what gives it a fresh conductor. Note that auto-update only
+offers semver-compatible releases, so a minor bump is a manual download for
+everyone already running the app.
+
+**The same early return is also the cost of a correct patch**, and it is worth
+stating because it is easy to read a patch as "everyone gets everything". A
+patch ships the new UI to an existing install but leaves the installed cell —
+and therefore the installed COORDINATOR — exactly as it was. So a coordinator
+fix in a patch reaches fresh installs only. `0.3.1` accepts that knowingly;
+the reasoning is in `kangaroo.config.ts` beside the version.
 
 **The cell's DNA hash is not the bundle's, and neither is wrong.** The packed
 DNA declares `network_seed: null`, but `installHappIfNecessary` installs it

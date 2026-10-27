@@ -45,7 +45,41 @@ export default defineConfig({
   // its .happ is byte-identical to the one the app repo built
   // (sha256 7ef913d7...), and all 101 checks of attachment-links.mjs pass
   // against a conductor running it.
-  version: '0.3.0',
+  // 0.3.1 IS A PATCH, AND THAT IS THE OPPOSITE DECISION FROM 0.2.0 AND 0.3.0
+  // ABOVE — ON PURPOSE, BECAUSE THE INTEGRITY ZOME DID NOT MOVE. The bundle
+  // is repacked from the app repo at 2026-10-27 02:17 and carries item 6.7's
+  // promise surface (a standalone "Your promises" section on the Domains tab,
+  // and the founding form's own-promise field widened to a textarea) plus
+  // item 1.18's coordinator fix (get_agent_constitution now tie-breaks on the
+  // host-stamped ACTION timestamp, because published_at is SECONDS and two
+  // constitutions published inside one second compared EQUAL).
+  //
+  // VERIFIED ON THE TWO ARTIFACTS RATHER THAN INFERRED FROM THE DIFF. Both
+  // webhapps were unpacked and their DNAs hashed with `hc dna hash`:
+  //
+  //   released 0.3.0 bundle  uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //   this 0.3.1 bundle      uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //
+  // Identical, so this is the same network and the same cell. `breakingVersion`
+  // in src/main/filesystem.ts maps EVERY 0.3.x patch to the literal string
+  // `0.3.x`, and that string is both the network seed suffix and the data
+  // directory name — so an upgrade in place keeps the conductor, the keystore
+  // and the agent key. A MINOR HERE WOULD HAVE FORKED THE NETWORK AND
+  // ABANDONED THE DATA ON BOTH MACHINES THAT RAN 0.3.0. The reasoning recorded
+  // for 0.2.0 and 0.3.0 does not carry over for one reason only: those
+  // packings had a forked integrity zome and this one does not.
+  //
+  // WHAT A PATCH DOES NOT DO, AND IT IS NOT NOTHING: 1.18 WILL NOT REACH AN
+  // INSTALL THAT ALREADY HAS THE CELL. `installHappIfNecessary` returns early
+  // when HAPP_APP_ID is already present, so an upgraded 0.3.0 install runs the
+  // NEW UI against the ALREADY-INSTALLED coordinator. Accepted rather than
+  // overlooked: the new surface calls `publish_constitution`, which the 0.3.0
+  // coordinator already has, so 6.7 works everywhere, and 1.18 only bites when
+  // a constitution is republished inside the SAME SECOND. Every invitee
+  // installs fresh and gets both. The two existing installs keep the
+  // stale-read-after-instant-republish behaviour until they are factory-reset,
+  // and that is the price of not forking the network the pilot is founded on.
+  version: '0.3.1',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
   fallbackToIndexHtml: true,

@@ -28,7 +28,7 @@ carrying its own conductor.
 | Holochain | 0.7.0 |
 | `@holochain/client` | 0.21 |
 | `@holochain/hc-spin-rust-utils` | 0.700 |
-| app version | 0.2.0 |
+| app version | 0.3.1 |
 
 `yarn check:config` verifies the first three agree with each other and with
 the real Holochain release. Run it after changing any of them.
@@ -58,13 +58,30 @@ switching to the URL form later is a config change, not a rework.
 **Which version bump the change needs.** A UI-only change is a patch bump
 (`0.1.0` → `0.1.1`) and reaches installed copies through auto-update, because
 the UI ships extracted at `resources/ui` and every installer carries its own.
-A DNA or zome change needs a **minor** bump. `installHappIfNecessary` in
-`src/main/holochainManager.ts` returns early when `HAPP_APP_ID` is already
-present in the conductor, and all of `0.1.x` shares one data directory — so a
-patch release onto an existing install would put the new UI in front of the
-old cell, silently. The minor bump gives it a fresh conductor. Note that
-auto-update only offers semver-compatible releases, so a minor bump is a
-manual download for everyone already running the app.
+
+**A change to the INTEGRITY zome needs a minor bump; a change to the
+COORDINATOR zome does not.** This sentence read "a DNA or zome change" until
+`0.3.1`, which is a counterexample to it: that release repacks the bundle with
+a coordinator fix (item 1.18) and is correctly a PATCH, because the DNA hash is
+computed over the integrity zome alone and did not move. The test is not
+"did any Rust change" but **did the DNA hash change** — unpack both bundles and
+run `hc dna hash` on the `.dna`, as `kangaroo.config.ts` records for `0.3.1`.
+Guessing from the diff is what this sentence used to encourage.
+
+`installHappIfNecessary` in `src/main/holochainManager.ts` returns early when
+`HAPP_APP_ID` is already present in the conductor, and all of `0.3.x` shares
+one data directory — so when the DNA hash *has* moved, a patch release onto an
+existing install would put the new UI in front of the old cell, silently, and
+the minor bump is what gives it a fresh conductor. Note that auto-update only
+offers semver-compatible releases, so a minor bump is a manual download for
+everyone already running the app.
+
+**The same early return is also the cost of a correct patch**, and it is worth
+stating because it is easy to read a patch as "everyone gets everything". A
+patch ships the new UI to an existing install but leaves the installed cell —
+and therefore the installed COORDINATOR — exactly as it was. So a coordinator
+fix in a patch reaches fresh installs only. `0.3.1` accepts that knowingly;
+the reasoning is in `kangaroo.config.ts` beside the version.
 
 **The cell's DNA hash is not the bundle's, and neither is wrong.** The packed
 DNA declares `network_seed: null`, but `installHappIfNecessary` installs it
@@ -122,6 +139,48 @@ git checkout release && git merge main && git push
 
 CI then builds on `windows-2022`, `macos-15-intel`, `macos-latest` and
 `ubuntu-22.04` and attaches the artifacts to that release.
+
+### Every release tag is shadowed locally by an upstream tag of the same name
+
+**`git show v0.3.0` in a local checkout does not show this project's release.**
+This repo was made from `holochain/kangaroo-electron` and keeps it as the
+`upstream` remote, and that template numbers its own releases in the same `0.x`
+range. Tags are a flat namespace with no remote in the name, so a
+`git fetch upstream` claimed all four of ours first — measured 2026-10-27:
+
+| tag | local, i.e. upstream's | `origin`, i.e. ours |
+|---|---|---|
+| `v0.1.0` | `925ac12` | `cccd285` |
+| `v0.1.1` | `925ac12` | `8ed0a20` |
+| `v0.2.0` | `b099051` | `577b0cc` |
+| `v0.3.0` | `3a237bb` | `9372f55` |
+
+Note `v0.1.0` and `v0.1.1` point at the **same** upstream commit locally, so
+they are not even distinguishable from each other.
+
+**Why this is quiet rather than loud: git will not clobber an existing tag on
+fetch.** Once a wrong `v0.3.1` is in the checkout — and it is, upstream shipped
+one in 2025 — creating ours on GitHub and fetching leaves the local one wrong
+permanently, with no warning. `git push --tags` from such a checkout would also
+push thirteen of upstream's tags to `origin`.
+
+Which is why the release procedure above **creates the tag on GitHub and never
+locally**. The releases are correct on `origin`; it is only checkouts that are
+confused. To check what a release actually points at, ask the remote rather
+than the checkout:
+
+```bash
+git ls-remote --tags origin
+gh release list
+```
+
+To repair a checkout — safe, since both sides are recoverable by fetching, and
+the second line stops it recurring:
+
+```bash
+git tag -d $(git tag -l 'v0.*') && git fetch origin --tags
+git config remote.upstream.tagOpt --no-tags
+```
 
 Auto-updates read `repository` in `package.json` to find those artifacts, so
 that field must name **this** repo. Pointing it at the app repo instead was

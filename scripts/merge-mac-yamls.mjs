@@ -15,8 +15,39 @@ const client = new Octokit({
   auth: token,
 });
 
-const OWNER = 'holochain';
-const REPO = 'launcher';
+// THE REPOSITORY IS READ FROM THE ENVIRONMENT, NOT HARDCODED.
+//
+// This said `holochain` / `launcher` — inherited verbatim from the template,
+// where it was correct — so on this fork it asked the LAUNCHER's releases
+// whether they had a `v<our version>`, got no, logged "No release found.
+// Skipping merge" and returned 0. Every release from v0.1.0 to v0.3.1
+// therefore shipped a `latest-mac.yml` listing ONE architecture: whichever
+// mac job's electron-builder uploaded it, with the other arch advertised to
+// nobody. Both mac jobs were green every time.
+//
+// It stayed invisible because every release until 0.3.1 was a MINOR, and
+// electron-updater does not offer those across, so the manifest was never
+// served. 0.3.1 is the first auto-update-eligible release this app has cut,
+// which is when an Apple Silicon install would have been handed the Intel
+// build.
+//
+// GITHUB_REPOSITORY is set by Actions for every step. The package.json
+// fallback is for running this by hand, and the throw is because a wrong
+// answer here is worse than a stopped job.
+function resolveRepo() {
+  const fromEnv = process.env.GITHUB_REPOSITORY;
+  if (fromEnv && fromEnv.includes('/')) return fromEnv.split('/');
+
+  const url = pkg.repository && (pkg.repository.url || pkg.repository);
+  const m = typeof url === 'string' && url.match(/github\.com[/:]([^/]+)\/(.+?)(?:\.git)?$/);
+  if (m) return [m[1], m[2]];
+
+  throw new Error(
+    'Cannot determine the repository: GITHUB_REPOSITORY is unset and package.json has no usable repository URL.',
+  );
+}
+
+const [OWNER, REPO] = resolveRepo();
 const URL = `/repos/${OWNER}/${REPO}/releases`;
 const VERSION = pkg.version;
 const APP_ID = pkg.name;
@@ -64,8 +95,14 @@ const getPlatformFromLatestMacYml = (content) => {
   });
 
   if (!currentRelease) {
-    console.log('No release found. Skipping merge');
-    return;
+    // NOT a soft skip. The release procedure in README.md creates the release
+    // (as a draft) BEFORE the push to `release`, so its absence means either
+    // that step was missed or this is pointed at the wrong repository — and
+    // returning 0 here is what hid the wrong repository for four releases.
+    throw new Error(
+      `No release tagged v${VERSION} found in ${OWNER}/${REPO}. ` +
+        'Create it (draft is fine) before pushing to `release` — see Releasing in README.md.',
+    );
   } else {
     console.log('Release found: ', currentRelease.name);
   }
@@ -129,7 +166,20 @@ const getPlatformFromLatestMacYml = (content) => {
 
   const remotePlatform = localPlatform === 'intel' ? 'arm' : 'intel';
 
-  const remotePlatformFileExists = currentRelease.assets.find((asset) => {
+  // RE-READ THE RELEASE BEFORE LOOKING FOR THE OTHER ARCHITECTURE'S FILE.
+  // `currentRelease` was fetched before this job uploaded its own, so using
+  // that snapshot means each job can only ever see assets that existed when it
+  // started. The two mac jobs happened to be ~3 minutes apart, which is the
+  // only reason the second one saw the first's file at all; run them close
+  // together and NEITHER sees the other, both take the soft return below, and
+  // `latest-mac.yml` is single-architecture again with both jobs green.
+  const refreshed = await client.request(`GET ${URL}`);
+  const refreshedRelease = refreshed.data.find((release) => {
+    return release.tag_name === `v${VERSION}`;
+  });
+  const assetsNow = (refreshedRelease || currentRelease).assets;
+
+  const remotePlatformFileExists = assetsNow.find((asset) => {
     return asset.name === `latest-mac-${remotePlatform}.yml`;
   });
 
@@ -158,7 +208,7 @@ const getPlatformFromLatestMacYml = (content) => {
   const remoteLatestMacYmlContent = new TextDecoder().decode(remotePlatformFile.data);
 
   try {
-    const originalAsset = currentRelease.assets.find((asset) => {
+    const originalAsset = assetsNow.find((asset) => {
       return asset.name === FILE_NAME;
     });
 

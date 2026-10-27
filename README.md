@@ -140,6 +140,48 @@ git checkout release && git merge main && git push
 CI then builds on `windows-2022`, `macos-15-intel`, `macos-latest` and
 `ubuntu-22.04` and attaches the artifacts to that release.
 
+### Every release tag is shadowed locally by an upstream tag of the same name
+
+**`git show v0.3.0` in a local checkout does not show this project's release.**
+This repo was made from `holochain/kangaroo-electron` and keeps it as the
+`upstream` remote, and that template numbers its own releases in the same `0.x`
+range. Tags are a flat namespace with no remote in the name, so a
+`git fetch upstream` claimed all four of ours first — measured 2026-10-27:
+
+| tag | local, i.e. upstream's | `origin`, i.e. ours |
+|---|---|---|
+| `v0.1.0` | `925ac12` | `cccd285` |
+| `v0.1.1` | `925ac12` | `8ed0a20` |
+| `v0.2.0` | `b099051` | `577b0cc` |
+| `v0.3.0` | `3a237bb` | `9372f55` |
+
+Note `v0.1.0` and `v0.1.1` point at the **same** upstream commit locally, so
+they are not even distinguishable from each other.
+
+**Why this is quiet rather than loud: git will not clobber an existing tag on
+fetch.** Once a wrong `v0.3.1` is in the checkout — and it is, upstream shipped
+one in 2025 — creating ours on GitHub and fetching leaves the local one wrong
+permanently, with no warning. `git push --tags` from such a checkout would also
+push thirteen of upstream's tags to `origin`.
+
+Which is why the release procedure above **creates the tag on GitHub and never
+locally**. The releases are correct on `origin`; it is only checkouts that are
+confused. To check what a release actually points at, ask the remote rather
+than the checkout:
+
+```bash
+git ls-remote --tags origin
+gh release list
+```
+
+To repair a checkout — safe, since both sides are recoverable by fetching, and
+the second line stops it recurring:
+
+```bash
+git tag -d $(git tag -l 'v0.*') && git fetch origin --tags
+git config remote.upstream.tagOpt --no-tags
+```
+
 Auto-updates read `repository` in `package.json` to find those artifacts, so
 that field must name **this** repo. Pointing it at the app repo instead was
 tried and does not work: installed copies look for `latest-linux.yml` under

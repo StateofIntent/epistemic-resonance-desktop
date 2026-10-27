@@ -236,6 +236,43 @@ things were verified on the published release rather than inferred from it:
 What that leaves unverified: the Windows and both macOS artifacts were built
 and uploaded but **never launched**, on this release or any other.
 
+#### `latest-mac.yml` listed ONE architecture from v0.1.0 to v0.3.1
+
+**The `both macOS` row above is about which jobs produce the file, not about
+what is in it.** Read on 2026-10-27, the published `v0.3.0` and the first
+`v0.3.1` build both carried a `latest-mac.yml` naming only the x64 `.zip` and
+`.dmg`; the `arm64` artifacts were uploaded and advertised to nobody.
+
+The cause was in `scripts/merge-mac-yamls.mjs`, which is what turns the two
+single-architecture manifests into one. It had `OWNER = 'holochain'` and
+`REPO = 'launcher'` hardcoded — correct in the template it came from — so on
+this fork it asked the **Launcher's** releases whether they had a `v0.3.1`, got
+no, and logged `No release found. Skipping merge` before returning 0. Both mac
+jobs were green every time.
+
+**Why four releases went by without it mattering.** Every release until
+`v0.3.1` was a minor, and electron-updater does not offer those across, so the
+manifest was never served to anybody. `v0.3.1` is the first auto-update-
+eligible release this app has cut, which is exactly when an Apple Silicon
+install on `0.3.x` would have been handed the Intel build.
+
+Fixed by reading the repository from `GITHUB_REPOSITORY` (falling back to
+`package.json`'s `repository`), and the silent `return` on a missing release is
+now a **throw** — the procedure above requires the release to exist before the
+push, so its absence is an error, and returning 0 there is what hid this. The
+same commit also re-reads the release after uploading its own architecture's
+file: each job previously searched a snapshot taken before its own upload, so
+the merge only ever worked because the two mac jobs happened to be minutes
+apart.
+
+**So check the manifest, not the asset list.** A complete set of fifteen assets
+is consistent with a manifest that names two of them:
+
+```bash
+gh release download v<version> --pattern 'latest-mac.yml' --dir .
+# must list BOTH -mac.zip and -arm64-mac.zip
+```
+
 ### Re-releasing an existing tag leaves most assets stale
 
 **A push to `release` that does not change `version` does not re-release the

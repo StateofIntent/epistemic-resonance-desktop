@@ -12,6 +12,7 @@ export interface CliOpts {
   lairRustLog?: string;
   bootstrapUrl?: string;
   relayUrl?: string;
+  resetNetworkConfig?: boolean;
   printHolochainLogs?: boolean;
 }
 
@@ -20,6 +21,7 @@ export interface RunOptions {
   networkSeed: string;
   bootstrapUrl: URL | undefined;
   relayUrl: URL | undefined;
+  resetNetworkConfig: boolean;
   holochainPath: string | undefined;
   lairPath: string | undefined;
   holochainRustLog: string | undefined;
@@ -44,6 +46,20 @@ export function validateArgs(args: CliOpts): RunOptions {
   }
   if (args.relayUrl && typeof args.relayUrl !== 'string') {
     throw new Error('The --relay-url argument must be of type string.');
+  }
+  // Fail LOUDLY on a URL that will not parse, rather than at the point where
+  // peers mysteriously cannot find each other. `new URL()` below would throw
+  // anyway; this says which flag was wrong (item 7.14).
+  for (const [flag, value] of [
+    ['--bootstrap-url', args.bootstrapUrl],
+    ['--relay-url', args.relayUrl],
+  ] as const) {
+    if (!value) continue;
+    try {
+      new URL(value);
+    } catch {
+      throw new Error(`The ${flag} argument is not a valid URL: '${value}'`);
+    }
   }
   if (args.holochainPath && typeof args.holochainPath !== 'string') {
     throw new Error('The --holochain-path argument must be of type string.');
@@ -73,6 +89,7 @@ export function validateArgs(args: CliOpts): RunOptions {
     networkSeed,
     bootstrapUrl,
     relayUrl,
+    resetNetworkConfig: !!args.resetNetworkConfig,
     holochainPath: args.holochainPath ? args.holochainPath : undefined,
     lairPath: args.lairPath ? args.lairPath : undefined,
     holochainRustLog: args.holochainRustLog ? args.holochainRustLog : undefined,

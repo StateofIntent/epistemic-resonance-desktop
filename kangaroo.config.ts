@@ -79,7 +79,45 @@ export default defineConfig({
   // installs fresh and gets both. The two existing installs keep the
   // stale-read-after-instant-republish behaviour until they are factory-reset,
   // and that is the price of not forking the network the pilot is founded on.
-  version: '0.3.1',
+  //
+  // 0.3.2 IS A PATCH FOR THE SAME REASON, AND CARRIES THE COMPOSE-TIME
+  // ADVERSARY — epistemic-happ open-work 6.10. The bundle is repacked from
+  // the app repo at `323a530` and brings the whole of 2026-11-02: the past
+  // cone's detection half on both sides (6.1, 1.22, 6.11), the render
+  // invariant's focus fix (1.23), and the compose form's "Before you sign"
+  // section, which reads a draft claim through a model on this machine and
+  // says what it will be asked.
+  //
+  // VERIFIED AS THE ARTIFACT, which is this file's own test and is the only
+  // thing that makes "patch" a fact rather than an intention. Both webhapps
+  // were unpacked and the DNA inside each hashed with `hc dna hash`:
+  //
+  //   shipped 0.3.1 bundle   uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //   this 0.3.2 bundle      uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //
+  // Identical — so the same network and the same cell, the conductor,
+  // keystore and agent key all survive the upgrade. `breakingVersion` maps
+  // both to `0.3.x`, checked rather than recalled.
+  //
+  // THE COORDINATOR DID MOVE AND THE HASH DID NOT, which is the thing to
+  // understand before reading the hash as "nothing changed". 6.11 added
+  // `critiques_unseen_by_assessment`, but the DNA hash covers the INTEGRITY
+  // zome and the modifiers, so a coordinator-only addition forks nothing.
+  //
+  // WHICH MEANS 1.18's LESSON REPEATS, AND IS ACCEPTED AGAIN:
+  // `installHappIfNecessary` early-returns when the cell is already there,
+  // so an UPGRADED install runs the new UI against the OLD coordinator and
+  // will not have that extern. `loadAssessmentUnseen` fails soft per
+  // assessment for exactly this reason — the position renders with its cone
+  // line and no denominator, which is what the screen looked like yesterday.
+  // Fresh installs get everything. The compose-time adversary is entirely
+  // app-side and reaches everyone.
+  //
+  // THE RUNTIME IS NEW IN THIS RELEASE AND THE WEIGHTS ARE NOT IN IT.
+  // llama.cpp ships bundled (11-36MB per target); the ~2.1GB model is pulled
+  // on first use, so this installer is the same size as 0.3.1 plus the
+  // runtime. An install that never opens the compose form downloads nothing.
+  version: '0.3.2',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
   fallbackToIndexHtml: true,
@@ -128,6 +166,92 @@ export default defineConfig({
   // be run against a build carrying this fix, since a run against the old
   // value would be measuring the bug rather than the protocol.
   relayUrl: 'https://use1-1.relay.n0.iroh-canary.iroh.link./',
+  // THE INFERENCE SERVER THAT RUNS THOSE WEIGHTS. llama.cpp, MIT, pinned.
+  //
+  // PICKED AGAINST THE REAL RELEASE ASSETS, not from memory: every non-Mac
+  // target this app builds has a VULKAN archive, and macOS needs no variant
+  // because Metal is in the standard build. 11-36MB per target against a
+  // 113-150MB installer, which is the whole reason the RUNTIME is bundled
+  // while the WEIGHTS are pulled.
+  //
+  // THE VULKAN ARCHIVES CARRY THE CPU BACKENDS TOO — `libggml-cpu-zen4.so`,
+  // `-skylakex`, `-alderlake` and the rest sit beside `libggml-vulkan.so` —
+  // so a machine with no Vulkan driver falls back to CPU rather than failing
+  // to start. CUDA and ROCm were rejected for assuming a toolkit is present;
+  // the plain CPU builds for making a 3B painfully slow.
+  //
+  // IT IS A DIRECTORY, NOT A BINARY, which is where this departs from the
+  // holochain and lair pins: 62 files, and `llama-server` finds its
+  // libraries by `RUNPATH: [$ORIGIN]` — verified with `readelf` — so the
+  // folder must stay together and needs no LD_LIBRARY_PATH.
+  //
+  // VERIFIED END TO END ON THIS MACHINE at b12034: the vulkan-x64 build
+  // served `qwen2.5-3b-instruct-q4_k_m.gguf` and answered the adversary's
+  // exact constrained request, returning parseable JSON. The sha256 below
+  // for that target was computed from the downloaded file and MATCHES the
+  // digest GitHub reports, so the other four digests are trustworthy by the
+  // same mechanism.
+  //
+  // NO STABLE RELEASE LINE EXISTS UPSTREAM — llama.cpp tags rolling `b#####`
+  // builds, several a day — so this pin will go stale silently.
+  runtime: {
+    build: 'b12034',
+    assets: {
+      'x86_64-unknown-linux-gnu': {
+        name: 'llama-b12034-bin-ubuntu-vulkan-x64.tar.gz',
+        sha256: '18e0524d245fbf4395421a73ed9fc7c911b2c081aaf1a24a708512fcc49e6144',
+      },
+      'aarch64-unknown-linux-gnu': {
+        name: 'llama-b12034-bin-ubuntu-vulkan-arm64.tar.gz',
+        sha256: '8cd30402acc619d5d5aa1ac03f3af2157c4744a7e5346a0ea09c064de69d24a1',
+      },
+      'x86_64-pc-windows-msvc.exe': {
+        name: 'llama-b12034-bin-win-vulkan-x64.zip',
+        sha256: 'df6ab37942d02aeb8ab3de5984711ea866826a94d50f7a9c5960a0d18a9d4269',
+      },
+      'aarch64-apple-darwin': {
+        name: 'llama-b12034-bin-macos-arm64.tar.gz',
+        sha256: 'ce1893ad52bd5db86227624d1777ccc0f2b211d1621cfcd393a886dbd2ac1d9b',
+      },
+      'x86_64-apple-darwin': {
+        name: 'llama-b12034-bin-macos-x64.tar.gz',
+        sha256: '79f1e86d763d2670a683aff0aa28d2547023f84d63d50cac21c3084f14d15c79',
+      },
+    },
+  },
+
+  // THE COMPOSE-TIME ADVERSARY'S WEIGHTS — epistemic-happ open-work 6.10.
+  //
+  // Qwen2.5-3B-Instruct Q4_K_M, which is the model the spike actually
+  // measured: four runs across two models and two serving paths established
+  // that the objection TEXT is consistently worth having at this size, and
+  // that what a small model gets wrong is the MODE LABEL — which this feature
+  // does not use. So the quality objection to a 3B lands on the half being
+  // discarded.
+  //
+  // THE SHA256 AND THE LENGTH ARE FROM THE FILE THE SPIKE RAN AGAINST, read
+  // off disk rather than copied from a page:
+  //
+  //   sha256  626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d
+  //   bytes   2104932768
+  //
+  // PINNED THE WAY THE HOLOCHAIN AND LAIR BINARIES ARE, and for the same
+  // reason: weights are trustworthy by hash or not at all, and a URL that
+  // quietly starts serving something else is a supply-chain problem rather
+  // than a download problem. `modelManager.ts` discards a partial that fails
+  // this hash instead of keeping it for a resume.
+  //
+  // PORT 11434 MATCHES `adversary.ts`'s `DEFAULT_ADVERSARY_ORIGIN` in the happ
+  // repository. If one moves, both move — there is no discovery here, and a
+  // mismatch presents as "no model is answering" with nothing to debug.
+  model: {
+    filename: 'qwen2.5-3b-instruct-q4_k_m.gguf',
+    url: 'https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf',
+    sha256: '626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d',
+    bytes: 2104932768,
+    port: 11434,
+  },
+
   bins: {
     holochainVersion: '0.7.0',
     compatibleDeps: {

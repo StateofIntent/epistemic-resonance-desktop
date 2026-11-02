@@ -26,6 +26,7 @@ import { Command } from 'commander';
 import semver from 'semver';
 
 import { breakingVersion, KangarooFileSystem } from './filesystem';
+import { ModelManager } from './modelManager';
 import { KangarooEmitter } from './eventEmitter';
 import { setupLogs } from './logs';
 import { HolochainManager } from './holochainManager';
@@ -64,21 +65,31 @@ kangarooCli
   .option('--holochain-rust-log <string>', 'RUST_LOG value to pass to the holochain binary')
   .option('--holochain-wasm-log <string>', 'WASM_LOG value to pass to the holochain binary')
   .option('--lair-rust-log <string>', 'RUST_LOG value to pass to the lair keystore binary')
+  // ITEM 7.14: THESE NOW PERSIST, AND THE TWO THAT DID NOTHING ARE GONE.
+  //
+  // `--bootstrap-url` and `--relay-url` used to apply for one launch only, so
+  // moving the network meant either telling every user to pass a flag every
+  // time or rebuilding the bundle. Passing one now WRITES it to
+  // `network-override.json` in the profile's data directory and later launches
+  // reuse it; `--reset-network-config` is the way back to the built-in values.
+  //
+  // `-s, --signal-url` and `--ice-urls` were removed rather than persisted.
+  // They were declared here and read by NOTHING — leftovers from the tx5
+  // networking this template predates. Holochain 0.7 uses iroh, and the
+  // conductor config written by `holochainManager` has only `bootstrap_url`
+  // and `relay_url`. Accepting a flag and silently discarding it is worse
+  // than not having it, because it looks like it worked.
   .option(
     '-b, --bootstrap-url <url>',
-    'URL of the bootstrap server to use (not persisted across restarts).',
+    'URL of the bootstrap server to use. Persisted for this profile; use --reset-network-config to go back to the built-in default.',
   )
   .option(
     '--relay-url <url>',
-    'URL of the relay server to use (not persisted across restarts).',
+    'URL of the relay server to use. Persisted for this profile; use --reset-network-config to go back to the built-in default.',
   )
   .option(
-    '-s, --signal-url <url>',
-    'URL of the signaling server to use (not persisted across restarts).',
-  )
-  .option(
-    '--ice-urls <string>',
-    'Comma separated string of ICE server URLs to use. Is ignored if an external holochain binary is being used (not persisted across restarts).',
+    '--reset-network-config',
+    'Forget any stored --bootstrap-url and --relay-url for this profile and use the values built into this build.',
   )
   .option(
     '--print-holochain-logs',
@@ -175,6 +186,11 @@ const handleSignZomeCall = async (
 let ZOME_CALL_SIGNER: ZomeCallSigner | undefined;
 let HOLOCHAIN_MANAGER: HolochainManager | undefined;
 let LAIR_HANDLE: childProcess.ChildProcessWithoutNullStreams | undefined;
+/** The compose-time adversary's weights — epistemic-happ open-work 6.10.
+ *
+ * Constructed eagerly and cheaply: it touches no disk until asked, so an
+ * install that never opens the compose form pays nothing for it. */
+const MODEL_MANAGER = new ModelManager();
 let MAIN_WINDOW: BrowserWindow | undefined | null;
 let SPLASH_SCREEN_WINDOW: BrowserWindow | undefined;
 let IS_APP_QUITTING = false;
@@ -252,6 +268,34 @@ app.whenReady().then(async () => {
       MAIN_WINDOW.on('close', mainWindowCloseHandler);
     }
   });
+  // --- The compose-time adversary's model (epistemic-happ 6.10) ------
+  //
+  // THE DOWNLOAD IS USER-TRIGGERED AND THAT IS NOT A DETAIL. The weights are
+  // ~2.1GB; pulling them unasked on first launch would be a large unannounced
+  // transfer on somebody's connection, and the whole reason this feature runs
+  // locally is that the author's drafts are theirs. So nothing here starts on
+  // its own: the renderer asks.
+  ipcMain.handle('model-status', () => MODEL_MANAGER.status());
+  ipcMain.handle('model-download', async (event) => {
+    // Progress is PUSHED rather than polled, so a progress bar is smooth
+    // without the renderer waking up to ask. The sender is used rather than a
+    // stored window handle: if the window has gone, so has the thing that
+    // wanted the bar, and `send` on a destroyed sender is a no-op.
+    await MODEL_MANAGER.download((status) => {
+      if (!event.sender.isDestroyed()) event.sender.send('model-progress', status);
+    });
+    return MODEL_MANAGER.status();
+  });
+  ipcMain.handle('model-cancel', () => {
+    MODEL_MANAGER.cancel();
+    return MODEL_MANAGER.status();
+  });
+  // SERVING IS ALSO EXPLICIT. `start` refuses with `runtime-missing` while the
+  // inference runtime is unpinned — see modelManager.ts's header — and the
+  // happ's UI already renders that honestly as "no model is answering"
+  // rather than as a draft nothing objected to.
+  ipcMain.handle('model-serve', () => MODEL_MANAGER.start());
+
   ipcMain.handle('open-logs', async () => KANGAROO_FILESYSTEM.openLogs());
   ipcMain.handle('export-logs', async () => KANGAROO_FILESYSTEM.exportLogs());
   (ipcMain.handle('factory-reset', async () => {
@@ -270,6 +314,13 @@ app.whenReady().then(async () => {
       // Kill holochain and lair
       if (LAIR_HANDLE) LAIR_HANDLE.kill();
       if (HOLOCHAIN_MANAGER) HOLOCHAIN_MANAGER.processHandle.kill();
+      // The server and any download, but NOT the weights: `modelsDir` sits
+      // outside the `breakingVersion` scope `factoryReset` clears, on purpose
+      // — a model is not network state and re-downloading gigabytes is not
+      // part of resetting a conductor. The space is therefore NOT reclaimed by
+      // a factory reset, which `KangarooFileSystem.modelsDir` records as the
+      // honest cost of that choice.
+      MODEL_MANAGER.stop();
       // Remove all data
       await KANGAROO_FILESYSTEM.factoryReset();
       // restart App
@@ -438,6 +489,10 @@ app.on('quit', () => {
   if (HOLOCHAIN_MANAGER) {
     HOLOCHAIN_MANAGER.processHandle.kill();
   }
+  // The inference server and any download in flight, alongside the other two
+  // children. A 2.1GB transfer left running after the window has gone is the
+  // kind of thing a user discovers from their data bill.
+  MODEL_MANAGER.stop();
 });
 
 /**

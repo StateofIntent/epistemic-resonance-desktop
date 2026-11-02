@@ -33,6 +33,35 @@ export class KangarooFileSystem {
     createDirIfNotExists(this.keystoreDir);
   }
 
+  /** The unscoped root, captured by `connect` BEFORE it mutates
+   * `userData`. Recovering it afterwards would mean guessing the profile
+   * segment back off a path, which is exactly the kind of fragile derivation
+   * this field exists to avoid. */
+  private static unscopedRoot: string | null = null;
+
+  /** Where a downloaded model lives, and it is deliberately OUTSIDE the
+   * `breakingVersion` scope that everything else here sits inside.
+   *
+   * Every other path in this class is `<root>/<breakingVersion>/<profile>/…`
+   * so that a network migration gets a fresh conductor, keystore and agent
+   * key — see the long note in `kangaroo.config.ts`. A MODEL IS NOT NETWORK
+   * STATE. It is some gigabytes of weights whose content does not depend on
+   * which network the app joins, and re-downloading it because the app went
+   * from `0.3.x` to `0.4.x` would be a punishment with no cause. So it hangs
+   * off the unscoped root and survives migrations, profiles and conductor
+   * factory resets.
+   *
+   * THAT ALSO MEANS A FACTORY RESET DOES NOT RECLAIM THE SPACE, which is the
+   * honest trade and is worth a sentence wherever a reset is offered. */
+  static modelsDir(): string {
+    if (KangarooFileSystem.unscopedRoot === null) {
+      throw new Error('modelsDir() called before KangarooFileSystem.connect()');
+    }
+    const dir = path.join(KangarooFileSystem.unscopedRoot, 'models');
+    createDirIfNotExists(dir);
+    return dir;
+  }
+
   static connect(app: Electron.App, profile?: Profile, tempDir?: string) {
     profile = profile ? profile : 'default';
     const versionString = breakingAppVersion();
@@ -46,12 +75,20 @@ export class KangarooFileSystem {
     // to the profile-specific paths
     if (!defaultUserDataPath.endsWith(profile)) {
       const rootDir = tempDir ? tempDir : defaultUserDataPath;
+      // Captured BEFORE the mutation below, which is the only moment the
+      // unscoped root is knowable without guessing. See `modelsDir`.
+      KangarooFileSystem.unscopedRoot = rootDir;
 
       app.setPath('logs', path.join(rootDir, versionString, profile, 'logs'));
       app.setAppLogsPath(path.join(rootDir, versionString, profile, 'logs'));
       app.setPath('userData', path.join(rootDir, versionString, profile));
       app.setPath('sessionData', path.join(rootDir, versionString, profile, 'chromium'));
       fs.rmdirSync(defaultLogsPath);
+    } else if (KangarooFileSystem.unscopedRoot === null) {
+      // `connect` called twice, or against an already-scoped path: the root
+      // is two segments up, and this is the ONLY branch where it has to be
+      // derived rather than observed.
+      KangarooFileSystem.unscopedRoot = path.join(defaultUserDataPath, '..', '..');
     }
 
     const logsDir = app.getPath('logs');

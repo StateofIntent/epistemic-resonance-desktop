@@ -1,4 +1,63 @@
+/** The weights the compose-time adversary runs on — epistemic-happ's
+ * open-work 6.10.
+ *
+ * PINNED LIKE THE HOLOCHAIN AND LAIR BINARIES, for the same reason: a model
+ * is content-addressed by its hash or it is not trustworthy, and a URL that
+ * silently starts serving different weights is the shape of supply-chain
+ * problem this project's own SECURITY.md cares about.
+ *
+ * `bytes` IS CARRIED SEPARATELY FROM THE HASH, because a progress bar must be
+ * able to say "of 2.1GB" before the first byte arrives rather than waiting on
+ * a `content-length` the server may not send. */
+export type ModelConfig = {
+  /** The filename on disk, under the UNSCOPED models dir — see
+   * `KangarooFileSystem.modelsDir`, which explains why a model does not live
+   * inside the `breakingVersion` scope. */
+  filename: string;
+  url: string;
+  sha256: string;
+  bytes: number;
+  /** Where the inference server will listen. Must match what the happ's
+   * `adversary.ts` defaults to, or the UI asks an empty port. */
+  port: number;
+};
+
+/** The inference server that runs the carried model.
+ *
+ * llama.cpp, MIT, pinned to one build. CHOSEN OVER THE ALTERNATIVE FOR A
+ * LICENSING REASON BEFORE A TECHNICAL ONE: the known-good binary on the
+ * author's machine came from Your Own AI's build tree, and Your Own AI is
+ * AGPL, so shipping its output inside this app is a question for a lawyer
+ * rather than a build script. llama.cpp publishes its own per-platform
+ * releases under MIT.
+ *
+ * VULKAN EVERYWHERE IT EXISTS, AND THE STANDARD BUILD ON macOS. The Vulkan
+ * archives carry the per-microarchitecture CPU backends alongside
+ * `libggml-vulkan.so`, so a machine with no Vulkan driver falls back to CPU
+ * rather than failing to start; macOS needs no variant because Metal is in
+ * the standard build. CUDA and ROCm were rejected for assuming a toolkit is
+ * installed, and the plain CPU builds for making a 3B painfully slow.
+ *
+ * THERE IS NO STABLE RELEASE LINE UPSTREAM. llama.cpp tags rolling `b#####`
+ * builds — several a day — so this pin will go stale with no upstream signal
+ * that it has. That is a maintenance cost of the choice, stated here because
+ * nothing will remind anybody. */
+export type RuntimeConfig = {
+  /** The upstream build tag, e.g. `b12034`. */
+  build: string;
+  /** Archive name per target, and the sha256 GitHub publishes as the asset
+   * digest — verified against a real download for `vulkan-x64` rather than
+   * trusted. */
+  assets: Record<string, { name: string; sha256: string }>;
+};
+
 export type KangarooConfig = {
+  /** See `RuntimeConfig`. */
+  runtime: RuntimeConfig;
+  /** See `ModelConfig`. The runtime that serves these is NOT pinned yet and
+   * that is a decision rather than an omission — `modelManager.ts`'s header
+   * states it. */
+  model: ModelConfig;
   /**
    * App ID. A unique id that will be used by the OS and that defines
    * the storage location of data. Should not contain whitespaces.

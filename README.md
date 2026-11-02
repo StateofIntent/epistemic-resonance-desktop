@@ -273,7 +273,7 @@ gh release download v<version> --pattern 'latest-mac.yml' --dir .
 # must list BOTH -mac.zip and -arm64-mac.zip
 ```
 
-### Re-releasing an existing tag leaves most assets stale
+### Re-releasing an existing tag does not work (see the 2026-10-27 update below)
 
 **A push to `release` that does not change `version` does not re-release the
 app.** It rebuilds everything and then replaces almost none of it, because the
@@ -320,6 +320,56 @@ AppImage by sha512 — recorded above. `v0.1.1` is left as it stands: its
 Linux auto-update is broken and nobody but the author ever installed it, so
 there is no one to strand and nothing to repair. Fixing it would mean deleting
 the stale assets from that release by hand, and `v0.2.0` supersedes it.
+
+#### UPDATED 2026-10-27: it no longer leaves them stale — on macOS it FAILS
+
+**The paragraph above describes a toolchain this repo no longer has.** Measured
+on run `40451553310`, a push to `release` against the already-built `v0.3.1`
+draft: electron-builder's publisher now **overwrites** published assets rather
+than skipping them, logging each one —
+
+```
+• overwrite published file  file=...-0.3.1-arm64.dmg  reason=already exists on GitHub
+```
+
+— and every artifact was in fact replaced, the AppImage included:
+
+| asset | before | after |
+|---|---|---|
+| `...-0.3.1.AppImage` | 157808234 | **157808236** |
+| `...-0.3.1-setup.exe` | 121260831 | **121260833** |
+| `...-0.3.1-x64.dmg` | 150007378 | **150007304** |
+| `...-0.3.1-arm64.dmg` | 148066205 | **148066135** |
+| `..._0.3.1_amd64.deb` | 118940552 | **118939306** |
+
+**But both macOS jobs failed, and the cause is the space in `productName`.**
+GitHub stores an asset name with spaces converted to dots, so the release
+carries `Epistemic.Resonance-0.3.1-arm64-mac.zip.blockmap` while
+electron-builder tries to delete `Epistemic Resonance-...` with a space. The
+delete misses, the upload then collides, and the job dies:
+
+```
+⨯ 422 Unprocessable Entity
+   errors: [{resource: ReleaseAsset, code: already_exists, field: name}]
+   name=Epistemic%20Resonance-0.3.1-arm64-mac.zip.blockmap
+```
+
+Only the two mac `.zip.blockmap` names contain a space — every other artifact
+is hyphenated or reverse-DNS, which is why the other two platforms overwrote
+cleanly. **Deleting just those two assets and re-running the two mac jobs was
+enough**; all four then went green and the merged `latest-mac.yml` appeared.
+
+**TWO CONSEQUENCES THAT MATTER MORE THAN THE MECHANISM.**
+
+1. **Every re-push voids every earlier verification.** The builds are not
+   reproducible — the same commit produced an AppImage two bytes different —
+   so a manifest-versus-asset check done before a re-push says nothing about
+   what is on the release after it. Verify *after* the last run that touched
+   the tag, not after the first.
+2. **The rule above still holds, for a better reason.** A release is a new
+   version, or it is not a release. It is no longer that a re-run silently
+   leaves stale assets; it is that a re-run against an existing tag **cannot
+   complete on macOS at all** without hand-deleting assets first.
 
 ## Three decisions worth revisiting
 

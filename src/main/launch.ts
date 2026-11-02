@@ -15,6 +15,12 @@ import {
 import { createHappWindow } from './windows';
 import { ZomeCallSigner } from '@holochain/hc-spin-rust-utils';
 import { HolochainManager } from './holochainManager';
+import {
+  clearNetworkOverride,
+  readNetworkOverride,
+  resolveNetworkUrl,
+  writeNetworkOverride,
+} from './networkConfig';
 
 export async function launch(
   kangarooFs: KangarooFileSystem,
@@ -71,6 +77,53 @@ export async function launch(
   if (splashscreenWindow)
     splashscreenWindow.webContents.send('loading-progress-update', 'Starting Holochain...');
 
+  // WHICH NETWORK THIS INSTALL IS ON, AND WHY — item 7.14.
+  //
+  // Precedence is flag, then stored, then the value built into this bundle.
+  // A flag is also WRITTEN, so pointing somebody at new infrastructure is a
+  // one-time instruction rather than one they have to repeat on every
+  // launch. `--reset-network-config` is handled first so that
+  // `--reset-network-config --bootstrap-url X` means "forget the old one and
+  // store X" rather than deadlocking on order.
+  if (runOptions.resetNetworkConfig) {
+    const had = clearNetworkOverride(kangarooFs.profileDataDir);
+    console.log(
+      had
+        ? 'Network override cleared; using the URLs built into this build.'
+        : 'No network override was stored; already using the URLs built into this build.'
+    );
+  }
+
+  const { override: storedNetwork, problems: networkProblems } = readNetworkOverride(
+    kangarooFs.profileDataDir
+  );
+  // Reported rather than swallowed: a rejected override silently falling back
+  // to the defaults is exactly the "it just stopped finding peers" symptom
+  // this item exists to prevent.
+  for (const problem of networkProblems) console.warn(`[network-override] ${problem}`);
+
+  const bootstrap = resolveNetworkUrl(
+    runOptions.bootstrapUrl?.toString(),
+    storedNetwork.bootstrapUrl,
+    KANGAROO_CONFIG.bootstrapUrl
+  );
+  const relay = resolveNetworkUrl(
+    runOptions.relayUrl?.toString(),
+    storedNetwork.relayUrl,
+    KANGAROO_CONFIG.relayUrl
+  );
+
+  if (runOptions.bootstrapUrl || runOptions.relayUrl) {
+    writeNetworkOverride(kangarooFs.profileDataDir, {
+      bootstrapUrl: runOptions.bootstrapUrl?.toString(),
+      relayUrl: runOptions.relayUrl?.toString(),
+    });
+    console.log('Stored the network override for this profile.');
+  }
+
+  console.log(`bootstrap_url: ${bootstrap.url} (${bootstrap.source})`);
+  console.log(`relay_url:     ${relay.url} (${relay.source})`);
+
   const holochainManager = await HolochainManager.launch(
     kangarooEmitter,
     kangarooFs,
@@ -80,8 +133,8 @@ export async function launch(
     kangarooFs.conductorDir,
     kangarooFs.conductorConfigPath,
     lairUrl,
-    runOptions.bootstrapUrl ? runOptions.bootstrapUrl.toString() : KANGAROO_CONFIG.bootstrapUrl,
-    runOptions.relayUrl ? runOptions.relayUrl.toString() : KANGAROO_CONFIG.relayUrl,
+    bootstrap.url,
+    relay.url,
     runOptions.holochainRustLog,
     runOptions.holochainWasmLog
   );

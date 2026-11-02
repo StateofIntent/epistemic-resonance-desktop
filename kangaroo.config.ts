@@ -79,7 +79,45 @@ export default defineConfig({
   // installs fresh and gets both. The two existing installs keep the
   // stale-read-after-instant-republish behaviour until they are factory-reset,
   // and that is the price of not forking the network the pilot is founded on.
-  version: '0.3.1',
+  //
+  // 0.3.2 IS A PATCH FOR THE SAME REASON, AND CARRIES THE COMPOSE-TIME
+  // ADVERSARY — epistemic-happ open-work 6.10. The bundle is repacked from
+  // the app repo at `323a530` and brings the whole of 2026-11-02: the past
+  // cone's detection half on both sides (6.1, 1.22, 6.11), the render
+  // invariant's focus fix (1.23), and the compose form's "Before you sign"
+  // section, which reads a draft claim through a model on this machine and
+  // says what it will be asked.
+  //
+  // VERIFIED AS THE ARTIFACT, which is this file's own test and is the only
+  // thing that makes "patch" a fact rather than an intention. Both webhapps
+  // were unpacked and the DNA inside each hashed with `hc dna hash`:
+  //
+  //   shipped 0.3.1 bundle   uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //   this 0.3.2 bundle      uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //
+  // Identical — so the same network and the same cell, the conductor,
+  // keystore and agent key all survive the upgrade. `breakingVersion` maps
+  // both to `0.3.x`, checked rather than recalled.
+  //
+  // THE COORDINATOR DID MOVE AND THE HASH DID NOT, which is the thing to
+  // understand before reading the hash as "nothing changed". 6.11 added
+  // `critiques_unseen_by_assessment`, but the DNA hash covers the INTEGRITY
+  // zome and the modifiers, so a coordinator-only addition forks nothing.
+  //
+  // WHICH MEANS 1.18's LESSON REPEATS, AND IS ACCEPTED AGAIN:
+  // `installHappIfNecessary` early-returns when the cell is already there,
+  // so an UPGRADED install runs the new UI against the OLD coordinator and
+  // will not have that extern. `loadAssessmentUnseen` fails soft per
+  // assessment for exactly this reason — the position renders with its cone
+  // line and no denominator, which is what the screen looked like yesterday.
+  // Fresh installs get everything. The compose-time adversary is entirely
+  // app-side and reaches everyone.
+  //
+  // THE RUNTIME IS NEW IN THIS RELEASE AND THE WEIGHTS ARE NOT IN IT.
+  // llama.cpp ships bundled (11-36MB per target); the ~2.1GB model is pulled
+  // on first use, so this installer is the same size as 0.3.1 plus the
+  // runtime. An install that never opens the compose form downloads nothing.
+  version: '0.3.2',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
   fallbackToIndexHtml: true,

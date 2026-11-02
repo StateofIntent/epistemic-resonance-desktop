@@ -1,4 +1,32 @@
+/** The weights the compose-time adversary runs on — epistemic-happ's
+ * open-work 6.10.
+ *
+ * PINNED LIKE THE HOLOCHAIN AND LAIR BINARIES, for the same reason: a model
+ * is content-addressed by its hash or it is not trustworthy, and a URL that
+ * silently starts serving different weights is the shape of supply-chain
+ * problem this project's own SECURITY.md cares about.
+ *
+ * `bytes` IS CARRIED SEPARATELY FROM THE HASH, because a progress bar must be
+ * able to say "of 2.1GB" before the first byte arrives rather than waiting on
+ * a `content-length` the server may not send. */
+export type ModelConfig = {
+  /** The filename on disk, under the UNSCOPED models dir — see
+   * `KangarooFileSystem.modelsDir`, which explains why a model does not live
+   * inside the `breakingVersion` scope. */
+  filename: string;
+  url: string;
+  sha256: string;
+  bytes: number;
+  /** Where the inference server will listen. Must match what the happ's
+   * `adversary.ts` defaults to, or the UI asks an empty port. */
+  port: number;
+};
+
 export type KangarooConfig = {
+  /** See `ModelConfig`. The runtime that serves these is NOT pinned yet and
+   * that is a decision rather than an omission — `modelManager.ts`'s header
+   * states it. */
+  model: ModelConfig;
   /**
    * App ID. A unique id that will be used by the OS and that defines
    * the storage location of data. Should not contain whitespaces.

@@ -128,6 +128,38 @@ export default defineConfig({
   // be run against a build carrying this fix, since a run against the old
   // value would be measuring the bug rather than the protocol.
   relayUrl: 'https://use1-1.relay.n0.iroh-canary.iroh.link./',
+  // THE COMPOSE-TIME ADVERSARY'S WEIGHTS — epistemic-happ open-work 6.10.
+  //
+  // Qwen2.5-3B-Instruct Q4_K_M, which is the model the spike actually
+  // measured: four runs across two models and two serving paths established
+  // that the objection TEXT is consistently worth having at this size, and
+  // that what a small model gets wrong is the MODE LABEL — which this feature
+  // does not use. So the quality objection to a 3B lands on the half being
+  // discarded.
+  //
+  // THE SHA256 AND THE LENGTH ARE FROM THE FILE THE SPIKE RAN AGAINST, read
+  // off disk rather than copied from a page:
+  //
+  //   sha256  626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d
+  //   bytes   2104932768
+  //
+  // PINNED THE WAY THE HOLOCHAIN AND LAIR BINARIES ARE, and for the same
+  // reason: weights are trustworthy by hash or not at all, and a URL that
+  // quietly starts serving something else is a supply-chain problem rather
+  // than a download problem. `modelManager.ts` discards a partial that fails
+  // this hash instead of keeping it for a resume.
+  //
+  // PORT 11434 MATCHES `adversary.ts`'s `DEFAULT_ADVERSARY_ORIGIN` in the happ
+  // repository. If one moves, both move — there is no discovery here, and a
+  // mismatch presents as "no model is answering" with nothing to debug.
+  model: {
+    filename: 'qwen2.5-3b-instruct-q4_k_m.gguf',
+    url: 'https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf',
+    sha256: '626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d',
+    bytes: 2104932768,
+    port: 11434,
+  },
+
   bins: {
     holochainVersion: '0.7.0',
     compatibleDeps: {

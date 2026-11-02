@@ -24,6 +24,18 @@ const binariesAppendix = KANGAROO_CONFIG.appId.slice(0, 10).replace(' ', '-');
 
 const BINARIES_DIRECTORY = path.join(RESOURCES_DIRECTORY, 'bins');
 
+/** Where the inference runtime's FOLDER lives — a directory rather than a
+ * single file, which is the one way this differs from the holochain and lair
+ * binaries. `llama-server` resolves `libllama.so`, `libggml-vulkan.so` and
+ * the per-microarchitecture CPU backends through `RUNPATH: [$ORIGIN]`, so
+ * the folder must stay intact and needs no `LD_LIBRARY_PATH`. */
+export const RUNTIME_DIRECTORY = path.join(RESOURCES_DIRECTORY, 'runtime');
+
+export const INFERENCE_SERVER_BINARY = path.join(
+  RUNTIME_DIRECTORY,
+  `llama-server${process.platform === 'win32' ? '.exe' : ''}`
+);
+
 export const HOLOCHAIN_BINARY = path.join(
   BINARIES_DIRECTORY,
   `holochain-v${KANGAROO_CONFIG.bins.holochainVersion}-${binariesAppendix}${

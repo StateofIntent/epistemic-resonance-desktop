@@ -128,6 +128,60 @@ export default defineConfig({
   // be run against a build carrying this fix, since a run against the old
   // value would be measuring the bug rather than the protocol.
   relayUrl: 'https://use1-1.relay.n0.iroh-canary.iroh.link./',
+  // THE INFERENCE SERVER THAT RUNS THOSE WEIGHTS. llama.cpp, MIT, pinned.
+  //
+  // PICKED AGAINST THE REAL RELEASE ASSETS, not from memory: every non-Mac
+  // target this app builds has a VULKAN archive, and macOS needs no variant
+  // because Metal is in the standard build. 11-36MB per target against a
+  // 113-150MB installer, which is the whole reason the RUNTIME is bundled
+  // while the WEIGHTS are pulled.
+  //
+  // THE VULKAN ARCHIVES CARRY THE CPU BACKENDS TOO — `libggml-cpu-zen4.so`,
+  // `-skylakex`, `-alderlake` and the rest sit beside `libggml-vulkan.so` —
+  // so a machine with no Vulkan driver falls back to CPU rather than failing
+  // to start. CUDA and ROCm were rejected for assuming a toolkit is present;
+  // the plain CPU builds for making a 3B painfully slow.
+  //
+  // IT IS A DIRECTORY, NOT A BINARY, which is where this departs from the
+  // holochain and lair pins: 62 files, and `llama-server` finds its
+  // libraries by `RUNPATH: [$ORIGIN]` — verified with `readelf` — so the
+  // folder must stay together and needs no LD_LIBRARY_PATH.
+  //
+  // VERIFIED END TO END ON THIS MACHINE at b12034: the vulkan-x64 build
+  // served `qwen2.5-3b-instruct-q4_k_m.gguf` and answered the adversary's
+  // exact constrained request, returning parseable JSON. The sha256 below
+  // for that target was computed from the downloaded file and MATCHES the
+  // digest GitHub reports, so the other four digests are trustworthy by the
+  // same mechanism.
+  //
+  // NO STABLE RELEASE LINE EXISTS UPSTREAM — llama.cpp tags rolling `b#####`
+  // builds, several a day — so this pin will go stale silently.
+  runtime: {
+    build: 'b12034',
+    assets: {
+      'x86_64-unknown-linux-gnu': {
+        name: 'llama-b12034-bin-ubuntu-vulkan-x64.tar.gz',
+        sha256: '18e0524d245fbf4395421a73ed9fc7c911b2c081aaf1a24a708512fcc49e6144',
+      },
+      'aarch64-unknown-linux-gnu': {
+        name: 'llama-b12034-bin-ubuntu-vulkan-arm64.tar.gz',
+        sha256: '8cd30402acc619d5d5aa1ac03f3af2157c4744a7e5346a0ea09c064de69d24a1',
+      },
+      'x86_64-pc-windows-msvc.exe': {
+        name: 'llama-b12034-bin-win-vulkan-x64.zip',
+        sha256: 'df6ab37942d02aeb8ab3de5984711ea866826a94d50f7a9c5960a0d18a9d4269',
+      },
+      'aarch64-apple-darwin': {
+        name: 'llama-b12034-bin-macos-arm64.tar.gz',
+        sha256: 'ce1893ad52bd5db86227624d1777ccc0f2b211d1621cfcd393a886dbd2ac1d9b',
+      },
+      'x86_64-apple-darwin': {
+        name: 'llama-b12034-bin-macos-x64.tar.gz',
+        sha256: '79f1e86d763d2670a683aff0aa28d2547023f84d63d50cac21c3084f14d15c79',
+      },
+    },
+  },
+
   // THE COMPOSE-TIME ADVERSARY'S WEIGHTS — epistemic-happ open-work 6.10.
   //
   // Qwen2.5-3B-Instruct Q4_K_M, which is the model the spike actually

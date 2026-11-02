@@ -57,7 +57,7 @@ import * as childProcess from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { KangarooFileSystem } from './filesystem';
-import { KANGAROO_CONFIG } from './const';
+import { INFERENCE_SERVER_BINARY, KANGAROO_CONFIG } from './const';
 import {
   bytesOnDisk, downloadPinned, DownloadCancelled, type PinnedFile,
 } from './pinnedDownload';
@@ -101,11 +101,33 @@ export class ModelManager {
   }
 
 
-  /** The runtime binary and its arguments, or null while the runtime is
-   * unpinned. See the header: this is a licensing and build-variant decision
-   * rather than a missing line of code. */
+  /** The runtime binary and its arguments, or null when the runtime is not
+   * on disk.
+   *
+   * STILL NULLABLE AFTER THE PIN, and deliberately: `fetch:binaries` is a
+   * BUILD step, so a developer checkout that has not run it has no runtime,
+   * and reporting that as `runtime-missing` is better than spawning a path
+   * that does not exist and reading the ENOENT back as a model failure.
+   *
+   * `-ngl 20` IS THE MEASURED NUMBER, not a guess: a hand-run
+   * `llama-server -ngl 20` is what fits a 3B on the author's 4GB GTX 970 by
+   * splitting layers across GPU and CPU — the thing Your Own AI refuses to
+   * do, and the reason that route was unavailable on this hardware. On a
+   * machine with more VRAM llama.cpp simply offloads those layers and has
+   * room to spare; on one with none, the Vulkan build falls back to the CPU
+   * backends shipped beside it. */
   private serverCommand(): { binary: string; args: string[] } | null {
-    return null;
+    if (!fs.existsSync(INFERENCE_SERVER_BINARY)) return null;
+    return {
+      binary: INFERENCE_SERVER_BINARY,
+      args: [
+        '-m', this.modelPath(),
+        '--host', '127.0.0.1',
+        '--port', String(MODEL.port),
+        '-ngl', '20',
+        '-c', '4096',
+      ],
+    };
   }
 
   status(): ModelStatus {

@@ -117,7 +117,35 @@ export default defineConfig({
   // llama.cpp ships bundled (11-36MB per target); the ~2.1GB model is pulled
   // on first use, so this installer is the same size as 0.3.1 plus the
   // runtime. An install that never opens the compose form downloads nothing.
-  version: '0.3.2',
+  // 0.3.3 IS A PATCH, AND THE DNA HASH IS WHAT MAKES THAT A FACT. The bundle
+  // is repacked from the app repo at `866f1f1` and carries open-work 1.25's
+  // fix: `get_foresight_record` now prefers the author's own INDEX when it
+  // strictly contains what the chain authority served, reported as a third
+  // `counted_from` value, `"index-superset"`.
+  //
+  // WHY THAT FIX EXISTS, because it is the kind of thing a release note
+  // usually hides. 1.24 made the denominator an enumeration of the author's
+  // source chain, which a writer cannot skip. On a real multi-member DHT that
+  // chain is served by a REMOTE activity authority, and the authority lags a
+  // recent write by about five seconds — so the count was SMALLER than the
+  // local index at the one moment anyone reads it: just after committing.
+  // Measured on a three-member network, not reasoned about. The UI no longer
+  // calls that case a FLOOR, because a reader told to discount it would be
+  // discounting the commitment they had just made.
+  //
+  // VERIFIED ON THE ARTIFACT RATHER THAN THE TREE: `resources/kangaroo.happ`
+  // was unpacked, its `dna.yaml` declares `protocol_version: 11`, and
+  // `hc dna hash` on the DNA inside it returns
+  // uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh — byte-identical to
+  // the hash shipped in 0.3.0, 0.3.1 and 0.3.2. The integrity zome did not
+  // move, so `breakingVersion` stays on 0.3.x: same network, same cell, same
+  // data directory, and auto-update offers this to everyone already on 0.3.x.
+  //
+  // THE CHANGE IS COORDINATOR-AND-UI ONLY, which carries the asymmetry item
+  // 1.18 recorded: a coordinator fix reaches an existing install only when
+  // that install takes this update, because the coordinator wasm travels in
+  // the bundle rather than in the cell.
+  version: '0.3.3',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
   fallbackToIndexHtml: true,

@@ -145,7 +145,54 @@ export default defineConfig({
   // 1.18 recorded: a coordinator fix reaches an existing install only when
   // that install takes this update, because the coordinator wasm travels in
   // the bundle rather than in the cell.
-  version: '0.3.3',
+  //
+  // 0.3.4 IS A PATCH, AND IT IS THE FIRST RELEASE HERE CUT BECAUSE A
+  // PARTICIPANT ASKED FOR IT. The bundle is repacked from the app repo at
+  // `7ee7f01` and carries what the pilot's first publisher reported on
+  // 2026-11-11, in four parts: the Worldline window now OPENS its records
+  // instead of counting them (6.17); a critique says WHO WROTE IT, and
+  // whether that is the claim's own author answering (6.18); a published
+  // entry's line breaks survive to the screen on every surface that renders
+  // somebody's own words (6.20); and the box you compose a permanent entry
+  // in grows to fit what is in it, capped so the button that signs it stays
+  // reachable (6.20).
+  //
+  // VERIFIED ON THE ARTIFACT, which is this file's own standing test and the
+  // only thing that makes "patch" a fact rather than an intention. The packed
+  // webhapp was unpacked, the `.happ` inside it unpacked again, and the DNA
+  // hashed with `hc dna hash`:
+  //
+  //   shipped 0.3.3 bundle   uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //   this 0.3.4 bundle      uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //
+  // Identical, and `dna.yaml` inside the artifact still declares
+  // `protocol_version: 11` — so this is the same network and the same cell,
+  // and the conductor, keystore and agent key all survive the upgrade.
+  // `breakingVersion` maps every 0.3.x to the literal `0.3.x`, which is both
+  // the network seed suffix and the data directory name. A MINOR WOULD HAVE
+  // FORKED THE NETWORK THE PILOT IS RUNNING ON and stranded the always-on
+  // node, whose seed carries this app's MINOR version.
+  //
+  // THE INTEGRITY ZOME DID MOVE IN THE TREE AND NOT IN THE ARTIFACT, which
+  // is worth stating because the diff looks alarming: twelve added lines in
+  // `dna/integrity/src/lib.rs` since the 0.3.3 packing are ALL COMMENT, and
+  // the hash above is the proof rather than the reading.
+  //
+  // AND THE COORDINATOR DID MOVE FUNCTIONALLY, so 1.18's asymmetry applies
+  // again and is not hidden here: `count_attestations_pure` no longer counts
+  // an agent attesting themselves, even from inside the root set. That wasm
+  // travels in the bundle rather than in the cell, so a FRESH install gets
+  // it and an UPGRADED install keeps the old counting until it is factory
+  // reset. **Everything a participant reported is UI, so all four of those
+  // fixes reach an upgrade in place** — which is the first time that has
+  // been true of a release here, and the reason this one is worth taking.
+  //
+  // THE UI WAS READ OUT OF THE BUNDLE, not trusted from the build log: the
+  // zipped `dist` inside the webhapp carries `critique-author`,
+  // `critique-content`, the relation marker's own words and `pre-wrap` in
+  // the stylesheet. A packed bundle wrapping a stale `dist/` is the failure
+  // `scripts/pack-webhapp.sh` exists to prevent and it is cheap to confirm.
+  version: '0.3.4',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
   fallbackToIndexHtml: true,

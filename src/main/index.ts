@@ -9,6 +9,7 @@ import {
   protocol,
   Tray,
   Notification,
+  shell,
   Event,
 } from 'electron';
 import childProcess from 'child_process';
@@ -28,10 +29,10 @@ import semver from 'semver';
 import { breakingVersion, KangarooFileSystem } from './filesystem';
 import { ModelManager } from './modelManager';
 import { KangarooEmitter } from './eventEmitter';
-import { setupLogs } from './logs';
+import { createUpdaterLogger, setupLogs } from './logs';
 import { HolochainManager } from './holochainManager';
 import { createSplashWindow } from './windows';
-import { KANGAROO_CONFIG, NOTIFICATIONS_ICON_PATH, SYSTRAY_ICON_PATH } from './const';
+import { KANGAROO_CONFIG, NOTIFICATIONS_ICON_PATH, RELEASES_URL, SYSTRAY_ICON_PATH } from './const';
 import { kangarooMenu } from './menu';
 import { validateArgs } from './cli';
 import { autoUpdater, UpdateCheckResult } from '@matthme/electron-updater';
@@ -396,46 +397,19 @@ app.whenReady().then(async () => {
    * Checking for app updates
    */
   if (app.isPackaged && KANGAROO_CONFIG.autoUpdates) {
-    autoUpdater.allowPrerelease = true;
-    autoUpdater.autoDownload = false;
-
-    let updateCheckResult: UpdateCheckResult | null | undefined;
-
+    // WRAPPED SO THAT NO UPDATE FAILURE CAN STOP THE APP FROM STARTING.
+    //
+    // Every statement below used to sit directly in this `whenReady` callback,
+    // with `await autoUpdater.downloadUpdate()` unguarded. A rejection there
+    // does not merely skip the update: it abandons the rest of this callback,
+    // and the `launch()` call that starts the conductor comes AFTER it. So the
+    // one case where a participant most needs the app — they accepted an update
+    // that then failed — was also the case where it would not start. An update
+    // is an optional improvement to a working app and is now treated as one.
     try {
-      // Note that the official electron-updater in the checkForUpdates() step by default only
-      // fetches the latest release on github, regardless of whether it is semver compatible.
-      // As a consequence, app versions belonging to an older semver line would stop receiving updates
-      // here since we deliberately reject semver incompatible updates below (see the "Versioning" section
-      // in the README). Therefore, we're using a fork of electron-builder (at the time of writing
-      // https://github.com/holochain/electron-builder/) such that checkForUpdates() still gives
-      // us latest semver compatible release, even if that release is not the highest version overall.
-      updateCheckResult = await autoUpdater.checkForUpdates();
+      await offerUpdateIfAvailable();
     } catch (e) {
-      console.warn('Failed to check for updates: ', e);
-    }
-
-    console.log('updateCheckResult: ', updateCheckResult);
-
-    // Double-check that the release we got (if any) is semver compatible, as we only install semver compatible updates.
-    const appVersion = app.getVersion();
-    if (
-      updateCheckResult &&
-      breakingVersion(updateCheckResult.updateInfo.version) === breakingVersion(appVersion) &&
-      semver.gt(updateCheckResult.updateInfo.version, appVersion)
-    ) {
-      const userDecision = await dialog.showMessageBox({
-        title: 'Update Available',
-        type: 'question',
-        buttons: ['Deny', 'Install and Restart'],
-        defaultId: 0,
-        cancelId: 0,
-        message: `A new compatible version of ${KANGAROO_CONFIG.productName} is available (${updateCheckResult.updateInfo.version}). Do you want to install it?`,
-      });
-      if (userDecision.response === 1) {
-        // downloading means that with the next start of the application it's automatically going to be installed
-        autoUpdater.on('update-downloaded', () => autoUpdater.quitAndInstall());
-        await autoUpdater.downloadUpdate();
-      }
+      console.error('Update flow failed, continuing to launch the app: ', e);
     }
   }
 
@@ -463,6 +437,179 @@ app.whenReady().then(async () => {
     }
   }
 });
+
+/**
+ * Offer the latest semver-compatible release, and account for it either way.
+ *
+ * WHY THIS IS A FUNCTION WITH THIS MUCH COMMENT ON IT. A pilot participant
+ * reported, in these words: *"App shows a window stating new version available.
+ * Install and restart. Clicking this - does nothing. No update happens."* Every
+ * part of that is a thing this code did:
+ *
+ *  1. `electron-updater`'s logger defaults to `console`, and the one `error`
+ *     listener it registers for itself only calls that logger. In a packaged
+ *     app nobody is reading stdout, and the profile log file that "Export logs"
+ *     ships had no updater line in it at all — so a failed update left no trace
+ *     on the participant's machine OR here. It now logs to that file.
+ *  2. Nothing was ever shown to the user after they accepted. A rejected
+ *     download was indistinguishable from a successful one that had not
+ *     finished, and both were indistinguishable from a button that did nothing.
+ *     A failure now says so, and says where to get the version by hand.
+ *  3. The download is 140–200MB depending on platform, with no indication that
+ *     anything was happening. "Does nothing" was the honest reading of a
+ *     working download, too. The offer now says what it is about to do, and the
+ *     progress goes on the taskbar/dock item and into the log.
+ *
+ * WHAT IS STILL NOT KNOWN, and is not pretended away here: which of the install
+ * paths actually failed for that participant. Linux/AppImage was driven end to
+ * end on 2026-11-12 and updates correctly, so the failure is on macOS or
+ * Windows. macOS is the suspect — `macOSCodeSigning: false`, and Squirrel.Mac
+ * will not swap an unsigned bundle — but suspecting is not measuring, and the
+ * point of (1) is that the next report arrives with the answer attached.
+ */
+async function offerUpdateIfAvailable(): Promise<void> {
+  const updaterLogger = createUpdaterLogger(KANGAROO_FILESYSTEM);
+  autoUpdater.logger = updaterLogger;
+  autoUpdater.allowPrerelease = true;
+  autoUpdater.autoDownload = false;
+
+  let updateCheckResult: UpdateCheckResult | null | undefined;
+
+  try {
+    // Note that the official electron-updater in the checkForUpdates() step by default only
+    // fetches the latest release on github, regardless of whether it is semver compatible.
+    // As a consequence, app versions belonging to an older semver line would stop receiving updates
+    // here since we deliberately reject semver incompatible updates below (see the "Versioning" section
+    // in the README). Therefore, we're using a fork of electron-builder (at the time of writing
+    // https://github.com/holochain/electron-builder/) such that checkForUpdates() still gives
+    // us latest semver compatible release, even if that release is not the highest version overall.
+    updateCheckResult = await autoUpdater.checkForUpdates();
+  } catch (e) {
+    // DELIBERATELY SILENT TO THE USER, AND LOUD IN THE LOG. A check that cannot
+    // reach GitHub is the ordinary offline start, and this app is meant to work
+    // offline — a dialog about it would be noise on every flight. The dialogs
+    // below are only for a failure that follows somebody actually asking for
+    // the update.
+    updaterLogger.warn(`Failed to check for updates: ${e}`);
+    return;
+  }
+
+  updaterLogger.info(
+    `Update check result: ${JSON.stringify(updateCheckResult?.updateInfo ?? null)}`,
+  );
+
+  // Double-check that the release we got (if any) is semver compatible, as we only install semver compatible updates.
+  const appVersion = app.getVersion();
+  if (
+    !updateCheckResult ||
+    breakingVersion(updateCheckResult.updateInfo.version) !== breakingVersion(appVersion) ||
+    !semver.gt(updateCheckResult.updateInfo.version, appVersion)
+  ) {
+    return;
+  }
+
+  const newVersion = updateCheckResult.updateInfo.version;
+  const downloadBytes = updateCheckResult.updateInfo.files?.[0]?.size;
+  const downloadSize =
+    typeof downloadBytes === 'number' && downloadBytes > 0
+      ? `about ${Math.round(downloadBytes / 1_000_000)}MB`
+      : 'a few hundred megabytes';
+
+  const userDecision = await dialog.showMessageBox({
+    title: 'Update Available',
+    type: 'question',
+    buttons: ['Deny', 'Install and Restart'],
+    defaultId: 0,
+    cancelId: 0,
+    message: `A new compatible version of ${KANGAROO_CONFIG.productName} is available (${newVersion}). Do you want to install it?`,
+    // SAYING WHAT THE BUTTON IS ABOUT TO DO IS HALF THE BUG FIX. A download of
+    // this size over a domestic connection is minutes, and the previous dialog
+    // promised a restart without saying anything had to be fetched first.
+    detail: `This downloads ${downloadSize} and then restarts the app by itself. It can take several minutes, and nothing else needs doing in the meantime.\n\nYour data, your key and the network you are on all carry over.`,
+  });
+
+  if (userDecision.response !== 1) {
+    updaterLogger.info(`User declined the update to ${newVersion}.`);
+    return;
+  }
+
+  let reportedFailure = false;
+  const reportFailure = (summary: string, cause: unknown): void => {
+    const detail = cause instanceof Error ? (cause.stack ?? cause.message) : String(cause);
+    updaterLogger.error(`${summary} ${detail}`);
+
+    // ONE REPORT PER START. The same failure can arrive twice — once as a
+    // rejected `downloadUpdate()` and once through the updater's `error` event —
+    // and two identical dialogs would read as two separate faults.
+    if (reportedFailure) return;
+    reportedFailure = true;
+
+    if (SPLASH_SCREEN_WINDOW && !SPLASH_SCREEN_WINDOW.isDestroyed()) {
+      SPLASH_SCREEN_WINDOW.setProgressBar(-1);
+    }
+
+    const buttons = RELEASES_URL ? ['Continue', 'Open the download page'] : ['Continue'];
+    const choice = dialog.showMessageBoxSync({
+      title: 'The update could not be installed',
+      type: 'warning',
+      buttons,
+      defaultId: buttons.length - 1,
+      cancelId: 0,
+      message: `${KANGAROO_CONFIG.productName} ${appVersion} could not install the update to ${newVersion} automatically.`,
+      detail: [
+        summary,
+        '',
+        detail,
+        '',
+        RELEASES_URL
+          ? 'You can install the new version by hand from the download page. Installing it over the top of this one keeps your data, your key and the network you are on — nothing is reset by updating that way.'
+          : 'This version keeps working, and the new one can be installed by hand from the project’s releases page.',
+        '',
+        'If you report this, "Export logs" in the system tray menu now includes the updater’s own account of what went wrong.',
+      ].join('\n'),
+    });
+
+    if (RELEASES_URL && choice === 1) {
+      shell.openExternal(RELEASES_URL).catch((e) => updaterLogger.warn(`openExternal: ${e}`));
+    }
+  };
+
+  // REGISTERED ONLY NOW, AFTER THE USER HAS ASKED FOR THE UPDATE. The updater
+  // emits `error` for a failed check too (`AppUpdater.js:230`), and that is the
+  // offline case this function returns quietly on above — a listener registered
+  // any earlier would turn every start without a network into a dialog.
+  autoUpdater.on('error', (e) => reportFailure('The updater reported an error.', e));
+
+  autoUpdater.on('download-progress', (progress) => {
+    // BEST EFFORT, AND IT IS THE ONLY VISIBLE SIGN DURING THE DOWNLOAD: the
+    // taskbar item on Windows, the dock icon on macOS, and on Linux only under
+    // a launcher that implements the Unity API. The log line below is the part
+    // that works everywhere.
+    if (SPLASH_SCREEN_WINDOW && !SPLASH_SCREEN_WINDOW.isDestroyed()) {
+      SPLASH_SCREEN_WINDOW.setProgressBar(progress.percent / 100);
+    }
+    updaterLogger.info(
+      `Downloading ${newVersion}: ${Math.round(progress.percent)}% (${Math.round(
+        progress.transferred / 1_000_000,
+      )}MB of ${Math.round(progress.total / 1_000_000)}MB)`,
+    );
+  });
+
+  if (Notification.isSupported()) {
+    new Notification({
+      title: `Downloading ${KANGAROO_CONFIG.productName} ${newVersion}`,
+      body: `${downloadSize}. The app restarts itself when it is ready.`,
+    }).show();
+  }
+
+  try {
+    // Downloading means that with the next start of the application it's automatically going to be installed
+    autoUpdater.on('update-downloaded', () => autoUpdater.quitAndInstall());
+    await autoUpdater.downloadUpdate();
+  } catch (e) {
+    reportFailure('The new version could not be downloaded and installed.', e);
+  }
+}
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

@@ -11,14 +11,45 @@ const RESOURCES_DIRECTORY = app.isPackaged
 
 const kangarooConfigString = fs.readFileSync(
   path.join(RESOURCES_DIRECTORY, 'kangaroo.config.json'),
-  'utf-8'
+  'utf-8',
 );
 export const KANGAROO_CONFIG: KangarooConfig = JSON.parse(kangarooConfigString);
 const conductorConfigTemplateString = fs.readFileSync(
   path.join(RESOURCES_DIRECTORY, 'conductor-config.yaml'),
-  'utf-8'
+  'utf-8',
 );
 export const CONDUCTOR_CONFIG_TEMPLATE = yaml.load(conductorConfigTemplateString);
+
+/**
+ * The releases page of the repository the updater itself queries — where a
+ * participant is sent when the automatic install could not be completed.
+ *
+ * READ OUT OF THE SAME FILE `electron-updater` READS, rather than written down
+ * a second time. `app-update.yml` is generated at build time from
+ * `package.json`'s `repository` field and is what the updater resolves its
+ * `owner`/`repo` from, so this link cannot drift from the release the update
+ * was offered out of. A hardcoded URL that pointed somewhere else would be
+ * worse than offering no link at all, since the one thing the person reading it
+ * cannot do is check.
+ *
+ * It lives beside the asar in Electron's own resources directory, which is NOT
+ * `RESOURCES_DIRECTORY` above — that one points inside `app.asar.unpacked`.
+ * `undefined` when the file is absent, which is the unpackaged case.
+ */
+export const RELEASES_URL: string | undefined = (() => {
+  try {
+    const updateConfig = yaml.load(
+      fs.readFileSync(path.join(process.resourcesPath, 'app-update.yml'), 'utf-8'),
+    ) as { owner?: string; repo?: string } | undefined;
+    if (updateConfig?.owner && updateConfig?.repo) {
+      return `https://github.com/${updateConfig.owner}/${updateConfig.repo}/releases/latest`;
+    }
+  } catch (e) {
+    // Not packaged, or no publish target configured. Callers fall back to
+    // saying nothing rather than guessing a URL.
+  }
+  return undefined;
+})();
 
 const binariesAppendix = KANGAROO_CONFIG.appId.slice(0, 10).replace(' ', '-');
 
@@ -33,21 +64,19 @@ export const RUNTIME_DIRECTORY = path.join(RESOURCES_DIRECTORY, 'runtime');
 
 export const INFERENCE_SERVER_BINARY = path.join(
   RUNTIME_DIRECTORY,
-  `llama-server${process.platform === 'win32' ? '.exe' : ''}`
+  `llama-server${process.platform === 'win32' ? '.exe' : ''}`,
 );
 
 export const HOLOCHAIN_BINARY = path.join(
   BINARIES_DIRECTORY,
   `holochain-v${KANGAROO_CONFIG.bins.holochainVersion}-${binariesAppendix}${
     process.platform === 'win32' ? '.exe' : ''
-  }`
+  }`,
 );
 
 export const LAIR_BINARY = path.join(
   BINARIES_DIRECTORY,
-  `lair-keystore-${binariesAppendix}${
-    process.platform === 'win32' ? '.exe' : ''
-  }`
+  `lair-keystore-${binariesAppendix}${process.platform === 'win32' ? '.exe' : ''}`,
 );
 
 export const HAPP_PATH = path.join(RESOURCES_DIRECTORY, 'kangaroo.happ');

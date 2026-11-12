@@ -192,7 +192,71 @@ export default defineConfig({
   // `critique-content`, the relation marker's own words and `pre-wrap` in
   // the stylesheet. A packed bundle wrapping a stale `dist/` is the failure
   // `scripts/pack-webhapp.sh` exists to prevent and it is cheap to confirm.
-  version: '0.3.4',
+  // 0.3.5 IS A PATCH, AND IT IS THE SECOND RELEASE CUT BECAUSE A PARTICIPANT
+  // ASKED — this time for the SHAPE of a conversation rather than for a fix.
+  // The bundle is repacked from the app repo at `04e7b94` and carries what the
+  // pilot's first publisher asked for on 2026-11-12, plus two defects they did
+  // not report and could not have seen:
+  //
+  //   6.19 — a reply goes UNDER the critique it answers, and each critique
+  //   gets its own section. They described that shape unprompted, which closed
+  //   a decision this project had been holding open on the grounds that
+  //   indenting a reply is a client deciding a thread's shape for readers who
+  //   never asked for it. A reader asked.
+  //
+  //   6.22 — a long critique list folds after four and SAYS WHAT IT IS HIDING,
+  //   replies included ("Show 2 more critiques and 1 reply"). Their own
+  //   constraint bounds it: "As long as anyone looking can see some
+  //   information without having to click too much."
+  //
+  //   6.23 — a critique by someone who already objected says "same author as
+  //   an earlier critique". This is the half of their FIRST report that 6.18's
+  //   byline did not answer: a byline that is DISTINCT is not a byline that is
+  //   DISTINGUISHABLE, and twelve base64 characters are not something a person
+  //   compares.
+  //
+  //   6.24 — opening a critique panel RE-READS it. The panel was a snapshot
+  //   taken the first time it was opened: your own critique appeared and
+  //   nobody else's did until a page reload. Nobody reported this; a harness
+  //   found it.
+  //
+  //   6.21 — THE UPDATER SAYS WHAT WENT WRONG. See the paragraph below, which
+  //   is the reason this release matters more than its contents.
+  //
+  // VERIFIED ON THE ARTIFACT, which is this file's own standing test and the
+  // only thing that makes "patch" a fact rather than an intention. The packed
+  // webhapp was unpacked, the `.happ` inside it unpacked again, and the DNA
+  // hashed with `hc dna hash`:
+  //
+  //   shipped 0.3.4 bundle   uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //   this 0.3.5 bundle      uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //
+  // Identical, and the unpacked `dna.yaml` still declares `protocol_version:
+  // 11` — so this is the same network and the same cell, and the conductor,
+  // keystore and agent key all survive the upgrade. `breakingVersion` maps
+  // every 0.3.x to the literal `0.3.x`, which is both the network seed suffix
+  // and the data directory name. A MINOR WOULD HAVE FORKED THE NETWORK THE
+  // PILOT IS RUNNING ON and stranded the always-on node.
+  //
+  // THE UI WAS READ OUT OF THE BUNDLE, not trusted from the build log: the
+  // zipped `dist` inside the webhapp carries `critique-thread`,
+  // `critique-reply`, `critique-fold-toggle`, `critiques-stale`, `warn-text`
+  // and the literal string "same author as an earlier critique".
+  //
+  // EVERYTHING ABOVE IS UI, SO AN UPGRADE IN PLACE GETS ALL OF IT — the second
+  // release here of which that is true, and the coordinator did not move at
+  // all this time.
+  //
+  // AND THE ONE THING THAT CANNOT BE DELIVERED BY THE THING IT FIXES. 0.3.4's
+  // updater could fail with nothing on screen and nothing in any log a human
+  // could reach, which is how a participant came to report a button that "does
+  // nothing". That is fixed here (6.21): a failure now names itself, offers
+  // the download page, and cannot stop the app from starting. BUT THE FIX
+  // TRAVELS IN THIS BUILD, so every install already on 0.3.4 has to take THIS
+  // release BY HAND. Nobody can be auto-updated onto the repair of
+  // auto-update. 6.21 closes when a participant takes an AUTOMATIC update, and
+  // the earliest that can happen is the release AFTER this one.
+  version: '0.3.5',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
   fallbackToIndexHtml: true,

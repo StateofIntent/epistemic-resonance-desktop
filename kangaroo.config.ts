@@ -256,7 +256,35 @@ export default defineConfig({
   // release BY HAND. Nobody can be auto-updated onto the repair of
   // auto-update. 6.21 closes when a participant takes an AUTOMATIC update, and
   // the earliest that can happen is the release AFTER this one.
-  version: '0.3.5',
+  //
+  // 0.3.6 IS A PATCH, AND IT IS THE RELEASE THE NOTE ABOVE WAS WAITING FOR.
+  // 0.3.5 could not deliver its own updater fix — the repair travelled in the
+  // build you had to install by hand — so 6.21 closes only when a participant
+  // takes an AUTOMATIC update, and this is the first release that can be taken
+  // that way. Nothing here closes it; the participant does.
+  //
+  // VERIFIED ON THE ARTIFACT RATHER THAN INFERRED FROM THE DIFF, the same two
+  // ways as every patch above. The bundle was unpacked and its DNA hashed with
+  // `hc dna hash`:
+  //
+  //   released 0.3.5 bundle  uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //   this 0.3.6 bundle      uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //
+  // Identical, so this is the same network and the same cell; `breakingVersion`
+  // maps every 0.3.x to the literal `0.3.x`, which is both the network seed
+  // suffix and the data directory name, so the conductor, keystore and agent
+  // key survive the upgrade. A MINOR WOULD HAVE FORKED THE NETWORK THE PILOT
+  // IS RUNNING ON and stranded the always-on node.
+  //
+  // THE UI WAS READ OUT OF THE BUNDLE, not trusted from the build log: the
+  // zipped `dist` inside this webhapp carries the literal string
+  // "Founding is what makes a domain findable".
+  //
+  // EVERYTHING HERE IS UI AND COORDINATOR-ONLY, SO AN UPGRADE IN PLACE GETS
+  // ALL OF IT. The coordinator gained one signal emission (a critique now
+  // announces itself to the author it is about) and the integrity zome did not
+  // move at all, which is why the hash above is unchanged.
+  version: '0.3.6',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
   fallbackToIndexHtml: true,

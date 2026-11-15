@@ -1,3 +1,70 @@
+## \[0.3.6\] - 2026-11-15
+
+### Added
+- **You are told when somebody critiques your work** (epistemic-happ open-work
+  6.15). The question the pilot's first publisher asked on 2026-11-09, hours
+  after writing the first critique in this protocol's history: how does the
+  author find out? 0.3.4 shipped the half where an author can ASK — their own
+  claims, each carrying how many critiques came back — and **nothing told them
+  until now.** A critique arriving while you have the app open puts a line on
+  screen naming the person who wrote it.
+  **There is no badge, no count, no dot and no ordering**, which is deliberate
+  and is the same reasoning the pull half was built on: an attention ordering
+  is not a merit ordering, but it is easily mistaken for one, and a
+  notification arriving as a number reintroduces exactly what that half
+  refused. **And it is opt-in by a gesture** — you open the channel, and
+  nothing is delivered to an agent who has not. That overturns a position this
+  project had written down in favour of opening it at startup; true while doing
+  so had no consequence, and it now has one.
+- **Every node in a critique tree says who wrote it** (6.18). The flat list got
+  bylines in 0.3.4; the tree beneath it still labelled its nodes by mode alone,
+  so a reply three levels down was an unattributed box. Each node now carries
+  its author, and a node whose parent was written by the same person says so —
+  **a relation the flat list cannot express at all**, because it only ever
+  reaches one level deep.
+
+### Changed
+- **The app now says that founding a domain is what makes it findable, at the
+  moment you are choosing not to** (6.12). This is a design decision taken in
+  the open and worth stating plainly, because a participant's own words forced
+  it both ways. Asked whether founding should be the price of being found, they
+  answered that it *"seems fair, as long as it's simple and the app explains
+  why"* — and then published that very claim **into somebody else's domain**,
+  because that was the one place guaranteed to be read.
+  **We kept founding as the price. What changed is that the app has to say so.**
+  The second act looked like a verdict on the cost, and it was not a priced
+  choice at all: nothing in this app had ever connected founding to
+  findability, and the *"one more click away"* in that claim was this app's own
+  Domains screen saying founding *"costs nothing"*. Nobody was ever really
+  offered the trade. So:
+  - The Domains tab says it lists the domains somebody **founded** — not every
+    domain in use, which is what being called "Domains" had implied.
+  - Typing a domain on the New Claim form tells you, there and then, whether it
+    is founded and therefore findable by someone who was never told its name —
+    and tells a domain that differs only in capitals apart from a match, because
+    those are two different domains that cannot see each other.
+  - Founding is reachable from that sentence, carrying the name you typed.
+  - And the Domains screen no longer says founding costs nothing. There is no
+    fee; the price is four fields and a promise published permanently under
+    your key.
+
+### Fixed
+- **A failed check no longer reads as an answer.** If the app cannot reach the
+  conductor to find out whether a domain is founded, it says it could not
+  check — rather than telling you your claim is unfindable, which would be a
+  false statement about your own work produced by a read that never happened.
+
+### Notes
+- **An upgrade in place gets all of it.** The packaged DNA hash is unchanged
+  (`uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh`, identical to 0.3.0
+  through 0.3.5), so this is the same network and the same cell: your data,
+  your key and your peers survive.
+- **This is the first release that can be taken as an automatic update since
+  0.3.5 repaired the updater.** 0.3.5 could not deliver its own fix — the
+  repair travelled in the build you had to install by hand — so if the update
+  prompt offers you this one and installs it, that closes the last open part of
+  a report from the pilot (6.21).
+
 ## \[0.3.5\] - 2026-11-13
 
 ### Added

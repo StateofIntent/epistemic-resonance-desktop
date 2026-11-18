@@ -284,7 +284,54 @@ export default defineConfig({
   // ALL OF IT. The coordinator gained one signal emission (a critique now
   // announces itself to the author it is about) and the integrity zome did not
   // move at all, which is why the hash above is unchanged.
-  version: '0.3.6',
+  // 0.3.7 IS A PATCH, AND THE RELEASE NOTE ABOVE IS THE ONE THIS BUILD HAS TO
+  // CORRECT. 0.3.6 said it was "the first release that can be taken
+  // automatically" and that 6.21 would close when a participant took one. That
+  // was written before anybody measured the shipped artifact. On 2026-11-18 it
+  // was measured: the macOS bundle carries NO code signature seal
+  // (`_CodeSignature/CodeResources` absent across all 712 zip entries) and its
+  // executable still holds the ad-hoc, linker-signed signature Electron
+  // produced, identifier 'Electron', flags 0x20002. Squirrel.Mac will only
+  // accept a successor that satisfies the running app's designated
+  // requirement, and an ad-hoc signature's requirement is a bare cdhash — the
+  // hash of that exact binary — which no successor build can ever satisfy. So
+  // NO release we publish can be taken automatically on macOS, and no
+  // electron-updater version or config value of ours changes that.
+  //
+  // THE DECISION TAKEN 2026-11-18 IS TO ACCEPT THAT: macOS installs are by
+  // hand indefinitely, and nothing may call that temporary. `macOSCodeSigning`
+  // stays false below, which is now a recorded decision rather than a default
+  // waiting to be flipped — the plumbing for an Apple Developer ID is already
+  // written (scripts/read-macos-code-signing.js, five branches in
+  // release.yaml) and flipping it needs an account somebody pays for yearly.
+  // Windows and Linux auto-update normally and always did.
+  //
+  // VERIFIED ON THE ARTIFACT RATHER THAN INFERRED FROM THE DIFF, the same two
+  // ways as every patch above. The bundle was unpacked, its `.happ` unpacked
+  // again, and the DNA hashed with `hc dna hash`:
+  //
+  //   released 0.3.6 bundle  uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //   this 0.3.7 bundle      uhC0kb-i4w7LvWd-pzqG3Wmm76P0U4pFZ3yGXhWzp-aRCpinsVDdh
+  //
+  // Identical, so this is the same network and the same cell; `breakingVersion`
+  // maps every 0.3.x to the literal `0.3.x`, which is both the network seed
+  // suffix and the data directory name, so the conductor, keystore and agent
+  // key survive the upgrade. A MINOR WOULD HAVE FORKED THE NETWORK THE PILOT
+  // IS RUNNING ON and stranded the always-on node — whose released-DHT check
+  // derives its expected seed from this repository's own `/latest` tag since
+  // 2026-11-18, so a patch keeps it reading YES and a minor would turn it red
+  // on purpose.
+  //
+  // THE UI WAS READ OUT OF THE BUNDLE, not trusted from the build log: the
+  // zipped `dist` inside this webhapp carries the literal strings
+  // "powderhorn" and "plumbline" — two entries of row 6.23's mnemonic
+  // wordlist, which exist nowhere else in this project — plus
+  // "browse-near-miss" for 6.27 and "period-sample" for 6.26.
+  //
+  // EVERYTHING HERE IS UI-ONLY, SO AN UPGRADE IN PLACE GETS ALL OF IT. Neither
+  // the coordinator nor the integrity zome moved at all, which is why the hash
+  // above is unchanged and why there is nothing to say about validation.
+  version: '0.3.7',
   macOSCodeSigning: false,
   windowsEVCodeSigning: false,
   fallbackToIndexHtml: true,

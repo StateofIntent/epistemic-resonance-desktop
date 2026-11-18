@@ -1,3 +1,88 @@
+## \[0.3.7\] - 2026-11-18
+
+### Added
+- **Two critiques by the same person now look the same, and two by two people
+  do not** (epistemic-happ open-work 6.23). The pilot's first publisher asked
+  for this three times across five days, and the third time named the mechanism
+  themselves: *"it would make everything a lot clearer if someone has a
+  nickname **derived from key**. It is easier to see who is who."* Every agent
+  byline now carries a two-word mnemonic in front of the key —
+  `folded-lantern · AbCd12…` — computed from the key's own bytes.
+  **Two earlier answers to this question shipped and were confirmed
+  insufficient by the person who asked**, which is why there is a third. 0.3.4
+  gave critiques a byline; 0.3.6 added *"same author as an earlier critique"*
+  inside a panel, and they called that *"good"* in the same breath as *"this
+  remains unclear"* about one person or several. A sentence can say two rows
+  share an author; it cannot answer the question across panels, or between two
+  people neither of whom wrote the row above. **Twelve base64 characters are
+  distinct without being distinguishable** — a string you compare character by
+  character or not at all.
+  **It is derived, not chosen, and that is the whole reason it is allowed
+  here.** Nobody picks their mnemonic, every copy of the app computes the same
+  one from the same key, and it asserts nothing the key does not already say.
+  A nickname somebody chose would be a weaker claim than a key while looking to
+  a reader like a stronger one; this is the opposite case. **The key is still
+  there and is still what a critique is held to** — the mnemonic sits in front
+  of it as a reading aid, never in place of it.
+  **It is a digest and it can collide**: there are 65536 possible pairs, so two
+  people will eventually share one. It tells you *not the same person* with
+  certainty and *the same person* only probably, and the key beside it is what
+  settles the difference. **Nothing counts it, orders by it or totals it** —
+  it makes rows comparable, not tallyable.
+  **It is two plain words and never a name.** A wordlist for this reaches
+  naturally for colours and nature words, and a great many of those are
+  people's names — amber, ruby, hazel, iris, rose, willow, fern, rowan. Every
+  one is excluded by a check rather than by intention, because a mnemonic that
+  reads as what somebody is called would assert exactly the identity the key
+  never vouched for.
+- **A record in your own history opens the domain it belongs to** (6.26). A
+  Worldline window listed what you had published and gave no way through to the
+  conversation each entry sits in; each row that carries a domain is now a
+  button to it, including for a domain nobody has founded.
+
+### Changed
+- **The browse screen now tells you about the domain you nearly typed** (6.27).
+  Domain names match exactly, so `Mental Health Reform` and
+  `mental health reform` are different places — and the app already computed
+  *"no domain is founded under exactly this, but one is founded under that"*
+  and showed it on **one screen only: the form where you create a claim.** The
+  screen where a reader actually hits the problem, browsing for a domain that
+  turns up empty, got a true statement of the rule and never the answer the app
+  was holding. It now names the founded domain and offers to load it, and says
+  plainly when it looked and found none, when the read is still in flight, and
+  when the read failed.
+- **Inside Moss**, a group's own name for an agent appears in front of that
+  agent's byline, and a critique arriving is announced through the host rather
+  than found by a timer (1.30, 1.31, 1.32). A host-supplied name is shown
+  *with* the key and never instead of it, for the same reason the mnemonic
+  above is: the host vouches for the name, the DHT vouches for the key, and
+  only one of those is what a claim is held to. **An open panel does not
+  rewrite itself** when something arrives — the announcement marks it and the
+  reader chooses when to take the re-read, because a surface changing under
+  somebody who is deciding what to say about it is its own defect and not a
+  fix for a stale one. **Standalone builds are unaffected, which is every
+  pilot install** — there is no host to ask for a name and nothing to hear an
+  announcement from, and that is exactly why the mnemonic above was built.
+
+### Known limitation
+- **On macOS, updates are by hand — permanently, not temporarily.** This was
+  measured on the shipped 0.3.6 bundle on 2026-11-18 rather than inferred: the
+  app carries no bundle code signature at all, and its executable still holds
+  the ad-hoc signature Electron's own linker produced. macOS will only replace
+  a running app with a successor that satisfies the running one's signing
+  identity, and an ad-hoc signature has no identity to satisfy — so **no build
+  we publish can ever be accepted as an automatic update by an installed one**,
+  whatever the in-app updater reports. The app may still announce an update and
+  may still download it; the install is the part that cannot happen. Treat the
+  notice as a prompt to come back to the releases page and download the new
+  `.dmg`.
+  **0.3.6's release note said the opposite** — that it was the first build that
+  could be taken automatically — and that was written before anyone had
+  measured the artifact. Windows and Linux auto-update normally. Fixing macOS
+  needs an Apple Developer ID or an updater that does not use Squirrel.Mac;
+  both are real options, neither has a date, and until one is taken this is the
+  honest description rather than a workaround.
+
 ## \[0.3.6\] - 2026-11-15
 
 ### Added

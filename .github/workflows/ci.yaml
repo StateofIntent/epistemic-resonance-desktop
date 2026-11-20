@@ -41,3 +41,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: yarn check:config
+
+      # The update dialog's download figure, against the published v0.3.7
+      # feeds committed as fixtures. Offline on purpose: the `--live` leg that
+      # re-reads the release is left out of CI, because a GitHub rate limit
+      # there is indistinguishable from a real mismatch.
+      - name: Check what the update dialog may say about the download
+        run: yarn check:update-download

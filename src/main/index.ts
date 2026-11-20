@@ -36,6 +36,12 @@ import { KANGAROO_CONFIG, NOTIFICATIONS_ICON_PATH, RELEASES_URL, SYSTRAY_ICON_PA
 import { kangarooMenu } from './menu';
 import { validateArgs } from './cli';
 import { autoUpdater, UpdateCheckResult } from '@matthme/electron-updater';
+import {
+  resolveUpdateArtifact,
+  resolvedTransferLine,
+  updateConsentDetail,
+  updateNotificationBody,
+} from './updateDownload';
 import { launch } from './launch';
 import { PasswordType, SplashScreenType } from './types';
 
@@ -509,11 +515,23 @@ async function offerUpdateIfAvailable(): Promise<void> {
   }
 
   const newVersion = updateCheckResult.updateInfo.version;
-  const downloadBytes = updateCheckResult.updateInfo.files?.[0]?.size;
-  const downloadSize =
-    typeof downloadBytes === 'number' && downloadBytes > 0
-      ? `about ${Math.round(downloadBytes / 1_000_000)}MB`
-      : 'a few hundred megabytes';
+
+  // NOT `files[0]`. The first entry of the feed is not necessarily the file
+  // this platform fetches: `latest-mac.yml` lists the x64 zip first, so an
+  // arm64 Mac was quoted the size of an artifact it would not download, and
+  // on Linux the AppImage is first only by the order electron-builder happens
+  // to write. This asks the question the updater itself asks. What that
+  // figure may and may not claim is in `updateDownload.ts`.
+  const artifact = resolveUpdateArtifact(
+    updateCheckResult.updateInfo.files,
+    process.platform,
+    process.arch === 'arm64',
+  );
+  updaterLogger.info(
+    `Artifact for ${process.platform}/${process.arch}: ${artifact?.url ?? '(unresolved)'}, full size ${
+      artifact?.bytes ?? 'not stated in the feed'
+    }.`,
+  );
 
   const userDecision = await dialog.showMessageBox({
     title: 'Update Available',
@@ -522,10 +540,14 @@ async function offerUpdateIfAvailable(): Promise<void> {
     defaultId: 0,
     cancelId: 0,
     message: `A new compatible version of ${KANGAROO_CONFIG.productName} is available (${newVersion}). Do you want to install it?`,
-    // SAYING WHAT THE BUTTON IS ABOUT TO DO IS HALF THE BUG FIX. A download of
-    // this size over a domestic connection is minutes, and the previous dialog
-    // promised a restart without saying anything had to be fetched first.
-    detail: `This downloads ${downloadSize} and then restarts the app by itself. It can take several minutes, and nothing else needs doing in the meantime.\n\nYour data, your key and the network you are on all carry over.`,
+    // SAYING WHAT THE BUTTON IS ABOUT TO DO IS HALF THE BUG FIX — AND THE
+    // FIRST VERSION OF THIS DIALOG SAID IT WRONG. It quoted the whole
+    // artifact ("about 194MB ... several minutes") while the updater fetches
+    // a block-level delta: measured 2.7MB of 189MB, an overstatement of about
+    // seventy times, in the one string whose job is to price the action. The
+    // real transfer is not resolved until after this button is pressed, so
+    // what is said here is a ceiling and both outcomes, never an expectation.
+    detail: updateConsentDetail(artifact?.bytes),
   });
 
   if (userDecision.response !== 1) {
@@ -580,7 +602,19 @@ async function offerUpdateIfAvailable(): Promise<void> {
   // any earlier would turn every start without a network into a dialog.
   autoUpdater.on('error', (e) => reportFailure('The updater reported an error.', e));
 
+  let reportedResolvedTransfer = false;
+
   autoUpdater.on('download-progress', (progress) => {
+    // THE FIRST PROGRESS EVENT CARRIES THE FIGURE THE DIALOG COULD NOT HAVE.
+    // `progress.total` is the delta's grand total during a differential
+    // download and the whole file during a full one, so this line says which
+    // of the dialog's two outcomes actually happened, and at what size.
+    // ONCE: the event fires every second and this is not progress.
+    if (!reportedResolvedTransfer && progress.total > 0) {
+      reportedResolvedTransfer = true;
+      updaterLogger.info(resolvedTransferLine(newVersion, progress.total, artifact?.bytes));
+    }
+
     // BEST EFFORT, AND IT IS THE ONLY VISIBLE SIGN DURING THE DOWNLOAD: the
     // taskbar item on Windows, the dock icon on macOS, and on Linux only under
     // a launcher that implements the Unity API. The log line below is the part
@@ -598,7 +632,7 @@ async function offerUpdateIfAvailable(): Promise<void> {
   if (Notification.isSupported()) {
     new Notification({
       title: `Downloading ${KANGAROO_CONFIG.productName} ${newVersion}`,
-      body: `${downloadSize}. The app restarts itself when it is ready.`,
+      body: updateNotificationBody(artifact?.bytes),
     }).show();
   }
 

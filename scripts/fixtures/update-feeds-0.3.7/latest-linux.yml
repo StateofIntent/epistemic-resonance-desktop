@@ -1,0 +1,12 @@
+version: 0.3.7
+files:
+  - url: org.stateofintent.epistemic-resonance-0.3.7.AppImage
+    sha512: UavCQ+OAcSbnDPCoxmol+rkYfdGDDhbVC7urasXMoV+pnoHtWqjzYphFaACDkm/jN4D14ObxLED/B/Q6sq3Ouw==
+    size: 193709027
+    blockMapSize: 201719
+  - url: org.stateofintent.epistemic-resonance_0.3.7_amd64.deb
+    sha512: 8VSzbm+eA+kpoLngnsjO7AEtJqj/5N2MDf4esKYhDGUEWpS9CZz2XEJUYIQsyiQCvrMxVFJAf0eyIdeXtGvefQ==
+    size: 139053184
+path: org.stateofintent.epistemic-resonance-0.3.7.AppImage
+sha512: UavCQ+OAcSbnDPCoxmol+rkYfdGDDhbVC7urasXMoV+pnoHtWqjzYphFaACDkm/jN4D14ObxLED/B/Q6sq3Ouw==
+releaseDate: '2026-11-18T11:34:36.799Z'

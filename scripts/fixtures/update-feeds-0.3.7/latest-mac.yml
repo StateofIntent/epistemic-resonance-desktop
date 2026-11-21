@@ -1,0 +1,17 @@
+version: 0.3.7
+files:
+  - url: Epistemic-Resonance-0.3.7-mac.zip
+    sha512: 6tbzxTUrAv5ohRaDMq7ktR2ONThHwK2y2McrX9C22kgQhOzWmiV+CJ93XhCgT9NQ0GY/3tkknhRxnbGNdjLEHw==
+    size: 162466432
+  - url: org.stateofintent.epistemic-resonance-0.3.7-x64.dmg
+    sha512: BxmPps93W70fyRWQZbjmRUMd+7Vhv9Re5g9NHJDXzSa29iWeCdQm8/LUBh+6IUvW5En0S3SeGwnCaX+Fsewitw==
+    size: 162277797
+  - url: Epistemic-Resonance-0.3.7-arm64-mac.zip
+    sha512: vBDyz5g1zDNneMHN6H+/bNHavXsQMwelbsvMH1CyksM1bC1LmohkXa5cpVKLr4FhYu0qPi41qeh8kyZfE8esTg==
+    size: 164745626
+  - url: org.stateofintent.epistemic-resonance-0.3.7-arm64.dmg
+    sha512: uMxTPBj5p8hRJNzi+P4cgOIfXurAZtOB3rxsuZOliEclShG9yl9EEa65bkhlB0bRTPKeZJ5Fl00vlY1IyklgjA==
+    size: 164606156
+path: Epistemic-Resonance-0.3.7-mac.zip
+sha512: 6tbzxTUrAv5ohRaDMq7ktR2ONThHwK2y2McrX9C22kgQhOzWmiV+CJ93XhCgT9NQ0GY/3tkknhRxnbGNdjLEHw==
+releaseDate: '2026-11-18T11:36:17.665Z'
